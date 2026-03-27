@@ -272,7 +272,8 @@ cols2 = st.columns(4)
 kpi_data2 = [
     ("Stärkste Kategorie", best_cat["Kategorie"], f"Ø {best_cat['Mittelwert']:.1f}/5", ""),
     ("Schwächste Kategorie", worst_cat["Kategorie"], f"Ø {worst_cat['Mittelwert']:.1f}/5", "bad"),
-    ("Meiste Verbesserung", most_improved, f"+{improvements[most_improved]:.1f} Pkt.", ""),
+    ("Meiste Verbesserung", most_improved,
+     f"+{improvements[most_improved]:.1f} Pkt. (Ø erste 2 vs. letzte 2 Abende)", ""),
     ("Perfekte Runden", f"{len(perfect_scores)}x 5/5" if perfect_scores else "–",
      ", ".join(perfect_scores[:3]) if perfect_scores else "–", ""),
 ]
