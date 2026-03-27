@@ -124,7 +124,8 @@ st.markdown("""
 # ---------------------------------------------------------------------------
 # Load & parse data
 # ---------------------------------------------------------------------------
-EXCEL_PATH = r"C:\Users\Felix.Rundel\Desktop\Privat\Haushalt\Kneipenquiz.xlsx"
+import pathlib
+EXCEL_PATH = pathlib.Path(__file__).parent / "Kneipenquiz.xlsx"
 
 @st.cache_data
 def load_data():
