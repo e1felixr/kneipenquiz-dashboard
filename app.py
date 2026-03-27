@@ -673,22 +673,44 @@ with col3:
     df_cons["Std"] = df_cons[months].std(axis=1)
 
     fig_cons = go.Figure()
+
+    # Alternate label positions to avoid overlaps
+    positions = ["top center", "bottom center", "top right", "bottom left",
+                 "top left", "bottom right", "middle right", "middle left",
+                 "top center", "bottom center", "top right"]
+    # Sort by Std so nearby points get different positions
+    df_cons_sorted = df_cons.sort_values("Std").reset_index(drop=True)
+
     fig_cons.add_trace(go.Scatter(
-        x=df_cons["Std"],
-        y=df_cons["Mittelwert"],
-        mode="markers+text",
-        text=df_cons["Kategorie"],
-        textposition="top center",
-        textfont=dict(size=9, color="#374151"),
+        x=df_cons_sorted["Std"],
+        y=df_cons_sorted["Mittelwert"],
+        mode="markers",
         marker=dict(
             size=12,
-            color=df_cons["Mittelwert"],
+            color=df_cons_sorted["Mittelwert"],
             colorscale=[[0, "#c6dbef"], [0.5, "#6baed6"], [1, "#2171b5"]],
             cmin=2, cmax=4,
             line=dict(width=1, color="#ffffff"),
         ),
         hovertemplate="%{text}<br>Ø %{y:.1f} Pkt. | σ %{x:.2f}<extra></extra>",
+        text=df_cons_sorted["Kategorie"],
     ))
+
+    # Add labels as annotations with individual positioning
+    for i, row in df_cons_sorted.iterrows():
+        pos = positions[i % len(positions)]
+        xshift = {"top center": 0, "bottom center": 0, "top right": 8,
+                  "bottom left": -8, "top left": -8, "bottom right": 8,
+                  "middle right": 14, "middle left": -14}.get(pos, 0)
+        yshift = {"top center": 12, "bottom center": -12, "top right": 10,
+                  "bottom left": -10, "top left": 10, "bottom right": -10,
+                  "middle right": 0, "middle left": 0}.get(pos, 0)
+        fig_cons.add_annotation(
+            x=row["Std"], y=row["Mittelwert"],
+            text=row["Kategorie"], showarrow=False,
+            font=dict(size=8, color="#374151"),
+            xshift=xshift, yshift=yshift,
+        )
     fig_cons.update_layout(
         **PLOTLY_LAYOUT,
         title=dict(text="Stärke vs. Konsistenz", font=dict(size=16)),
