@@ -341,6 +341,91 @@ for col, (label, value, sub, cls) in zip(cols, kpi_data):
     </div>
     """, unsafe_allow_html=True)
 
+# --- Second row of KPI cards: category insights ---
+df_no_sonder = df_cat[df_cat["Kategorie"] != "Sonderrunde"]
+best_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmax()]
+worst_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmin()]
+
+perfect_scores = []
+for _, row in df_no_sonder.iterrows():
+    for m in months:
+        if row[m] == 5:
+            perfect_scores.append(f"{row['Kategorie']} ({m})")
+
+improvements = {}
+for _, row in df_no_sonder.iterrows():
+    delta = np.mean([row["Jan 26"], row["Mrz 26"]]) - np.mean([row["Apr 25"], row["Mai 25"]])
+    improvements[row["Kategorie"]] = delta
+most_improved = max(improvements, key=improvements.get)
+
+cols2 = st.columns(4)
+kpi_data2 = [
+    ("Stärkste Kategorie", best_cat["Kategorie"], f"Ø {best_cat['Mittelwert']:.1f}/5", ""),
+    ("Schwächste Kategorie", worst_cat["Kategorie"], f"Ø {worst_cat['Mittelwert']:.1f}/5", "bad"),
+    ("Meiste Verbesserung", most_improved, f"+{improvements[most_improved]:.1f} Pkt.", ""),
+    ("Perfekte Runden", f"{len(perfect_scores)}x 5/5" if perfect_scores else "–",
+     ", ".join(perfect_scores[:3]) if perfect_scores else "–", ""),
+]
+for col, (label, value, sub, cls) in zip(cols2, kpi_data2):
+    sub_cls = f"kpi-sub {cls}" if cls else "kpi-sub"
+    col.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">{label}</div>
+        <div class="kpi-value" style="font-size:1.3rem;">{value}</div>
+        <div class="{sub_cls}">{sub}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# --- Detail tables ---
+st.markdown('<div class="section-title">Rohdaten</div>', unsafe_allow_html=True)
+
+detail_rows_data = []
+for q in quiz_nights:
+    row = {
+        "Monat": q["Monat"],
+        "Joker 1": q["Joker1"],
+        "Joker 2": q["Joker2"],
+        "Sonderrunde": q["Sonderrunde_Thema"],
+        "Teil 1": q["Teil1"],
+        "Teil 2": q["Teil2"],
+        "Teil 3": q["Teil3"],
+        "Teil 4": q["Teil4"],
+        "Bonus": q["Bonus"],
+        "Gesamt": q["Gesamt"],
+        "% richtig": f"{q['Pct_richtig']:.0%}",
+        "Platz": f"{q['Platzierung']}." if q["Platzierung"] else "–",
+        "von": q["Von"] or "–",
+    }
+    detail_rows_data.append(row)
+
+df_detail = pd.DataFrame(detail_rows_data)
+st.dataframe(
+    df_detail,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Gesamt": st.column_config.ProgressColumn(
+            "Gesamt", min_value=0, max_value=50, format="%d Pkt.",
+        ),
+    },
+)
+
+st.markdown("**Punkte pro Kategorie und Monat:**")
+df_show = df_cat[["Kategorie", "Platz", "Mittelwert"] + months].copy()
+df_show["Mittelwert"] = df_show["Mittelwert"].round(2)
+df_show = df_show.sort_values("Platz")
+
+st.dataframe(
+    df_show,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Mittelwert": st.column_config.ProgressColumn(
+            "Ø", min_value=0, max_value=5, format="%.1f",
+        ),
+    },
+)
+
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
@@ -813,132 +898,6 @@ with col3:
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
-# ROW 5: Highlight insights
-# ---------------------------------------------------------------------------
-st.markdown('<div class="section-title">Highlights & Fun Facts</div>', unsafe_allow_html=True)
-
-# Calculate insights
-df_no_sonder = df_cat[df_cat["Kategorie"] != "Sonderrunde"]
-best_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmax()]
-worst_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmin()]
-
-# Perfect scores (5/5)
-perfect_scores = []
-for _, row in df_no_sonder.iterrows():
-    for m in months:
-        if row[m] == 5:
-            perfect_scores.append(f"{row['Kategorie']} ({m})")
-
-# Zero scores
-zero_scores = []
-for _, row in df_cat.iterrows():
-    for m in months:
-        if row[m] == 0:
-            zero_scores.append(f"{row['Kategorie']} ({m})")
-
-# Most improved category (biggest positive delta first to last)
-improvements = {}
-for _, row in df_no_sonder.iterrows():
-    delta = np.mean([row["Jan 26"], row["Mrz 26"]]) - np.mean([row["Apr 25"], row["Mai 25"]])
-    improvements[row["Kategorie"]] = delta
-most_improved = max(improvements, key=improvements.get)
-most_declined = min(improvements, key=improvements.get)
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Stärkste Kategorie</div>
-        <div class="kpi-value" style="font-size:1.3rem; color:#08519c;">{best_cat['Kategorie']}</div>
-        <div class="kpi-sub">Ø {best_cat['Mittelwert']:.1f}/5 Punkte</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Schwächste Kategorie</div>
-        <div class="kpi-value" style="font-size:1.3rem; color:#8a5b5b;">{worst_cat['Kategorie']}</div>
-        <div class="kpi-sub bad">Ø {worst_cat['Mittelwert']:.1f}/5 Punkte</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Meiste Verbesserung</div>
-        <div class="kpi-value" style="font-size:1.3rem; color:#2563eb;">{most_improved}</div>
-        <div class="kpi-sub">+{improvements[most_improved]:.1f} Pkt. (erste → letzte 2)</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    perfect_text = f"{len(perfect_scores)}x 5/5" if perfect_scores else "Noch keine!"
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Perfekte Runden (5/5)</div>
-        <div class="kpi-value" style="font-size:1.3rem; color:#7b6b4b;">{perfect_text}</div>
-        <div class="kpi-sub">{', '.join(perfect_scores[:3]) if perfect_scores else '–'}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-
-# ---------------------------------------------------------------------------
-# DETAIL TABLE
-# ---------------------------------------------------------------------------
-st.markdown('<div class="section-title">Rohdaten: Alle Quizabende</div>', unsafe_allow_html=True)
-
-# Build a clean detail dataframe
-detail_rows_data = []
-for q in quiz_nights:
-    row = {
-        "Monat": q["Monat"],
-        "Joker 1": q["Joker1"],
-        "Joker 2": q["Joker2"],
-        "Sonderrunde": q["Sonderrunde_Thema"],
-        "Teil 1": q["Teil1"],
-        "Teil 2": q["Teil2"],
-        "Teil 3": q["Teil3"],
-        "Teil 4": q["Teil4"],
-        "Bonus": q["Bonus"],
-        "Gesamt": q["Gesamt"],
-        "% richtig": f"{q['Pct_richtig']:.0%}",
-        "Platz": f"{q['Platzierung']}." if q["Platzierung"] else "–",
-        "von": q["Von"] or "–",
-    }
-    detail_rows_data.append(row)
-
-df_detail = pd.DataFrame(detail_rows_data)
-st.dataframe(
-    df_detail,
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        "Gesamt": st.column_config.ProgressColumn(
-            "Gesamt", min_value=0, max_value=50, format="%d Pkt.",
-        ),
-    },
-)
-
-# Category detail table
-st.markdown("**Punkte pro Kategorie und Monat:**")
-df_show = df_cat[["Kategorie", "Platz", "Mittelwert"] + months].copy()
-df_show["Mittelwert"] = df_show["Mittelwert"].round(2)
-df_show = df_show.sort_values("Platz")
-
-st.dataframe(
-    df_show,
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        "Mittelwert": st.column_config.ProgressColumn(
-            "Ø", min_value=0, max_value=5, format="%.1f",
-        ),
-    },
-)
 
 # ---------------------------------------------------------------------------
 # Footer
