@@ -328,7 +328,7 @@ kpi_data = [
     ("Ø Platzierung", f"{avg_placement:.1f}",
      f"bei Ø {np.mean([q['Von'] for q in quiz_nights if q['Von']]):.1f} Teams", ""),
     ("Trend", f"{trend_arrow} {abs(trend_delta):.0%}",
-     f"vs. Vorabend ({quiz_nights[-2]['Monat']})", trend_class),
+     f"vs. {quiz_nights[-2]['Monat']}", trend_class),
 ]
 
 for col, (label, value, sub, cls) in zip(cols, kpi_data):
