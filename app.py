@@ -279,7 +279,7 @@ for _, row in df_no_sonder.iterrows():
     improvements[row["Kategorie"]] = delta
 most_improved = max(improvements, key=improvements.get)
 
-cols2 = st.columns(4)
+cols2 = st.columns([1, 1, 1, 2])
 kpi_data2 = [
     ("Stärkste Kategorie", best_cat["Kategorie"], f"Ø {best_cat['Mittelwert']:.1f}/5", ""),
     ("Schwächste Kategorie", worst_cat["Kategorie"], f"Ø {worst_cat['Mittelwert']:.1f}/5", "bad"),
