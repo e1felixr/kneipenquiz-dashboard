@@ -698,11 +698,6 @@ with col3:
 
     fig_cons = go.Figure()
 
-    # Alternate label positions to avoid overlaps
-    positions = ["top center", "bottom center", "top right", "bottom left",
-                 "top left", "bottom right", "middle right", "middle left",
-                 "top center", "bottom center", "top right"]
-    # Sort by Std so nearby points get different positions
     df_cons_sorted = df_cons.sort_values("Std").reset_index(drop=True)
 
     fig_cons.add_trace(go.Scatter(
@@ -710,39 +705,41 @@ with col3:
         y=df_cons_sorted["Mittelwert"],
         mode="markers",
         marker=dict(
-            size=12,
+            size=14,
             color=df_cons_sorted["Mittelwert"],
             colorscale=[[0, "#c6dbef"], [0.5, "#6baed6"], [1, "#2171b5"]],
             cmin=2, cmax=4,
-            line=dict(width=1, color="#ffffff"),
+            line=dict(width=1.5, color="#ffffff"),
         ),
         hovertemplate="%{text}<br>Ø %{y:.1f} Pkt. | σ %{x:.2f}<extra></extra>",
         text=df_cons_sorted["Kategorie"],
     ))
 
-    # Add labels as annotations with individual positioning
+    # Labels with arrows, alternating directions to avoid overlap
+    arrow_angles = [30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 0]
     for i, row in df_cons_sorted.iterrows():
-        pos = positions[i % len(positions)]
-        xshift = {"top center": 0, "bottom center": 0, "top right": 8,
-                  "bottom left": -8, "top left": -8, "bottom right": 8,
-                  "middle right": 14, "middle left": -14}.get(pos, 0)
-        yshift = {"top center": 12, "bottom center": -12, "top right": 10,
-                  "bottom left": -10, "top left": 10, "bottom right": -10,
-                  "middle right": 0, "middle left": 0}.get(pos, 0)
+        angle = arrow_angles[i % len(arrow_angles)]
         fig_cons.add_annotation(
             x=row["Std"], y=row["Mittelwert"],
-            text=row["Kategorie"], showarrow=False,
-            font=dict(size=8, color="#374151"),
-            xshift=xshift, yshift=yshift,
+            text=f"<b>{row['Kategorie']}</b>",
+            showarrow=True,
+            arrowhead=0,
+            arrowwidth=1,
+            arrowcolor="#9ca3af",
+            ax=40 * np.cos(np.radians(angle)),
+            ay=-40 * np.sin(np.radians(angle)),
+            font=dict(size=10, color="#374151"),
+            bgcolor="rgba(255,255,255,0.85)",
+            borderpad=2,
         )
     fig_cons.update_layout(
         **PLOTLY_LAYOUT,
         title=dict(text="Stärke vs. Konsistenz", font=dict(size=16)),
         xaxis=dict(title="Streuung σ (links = konstanter)", gridcolor="rgba(0,0,0,0.05)",
-                   range=[0.3, 1.8]),
+                   range=[0.2, 1.9]),
         yaxis=dict(title="Ø Punkte", gridcolor="rgba(0,0,0,0.05)",
-                   range=[2, 3.8]),
-        height=400,
+                   range=[1.9, 3.9]),
+        height=450,
     )
     st.plotly_chart(fig_cons, use_container_width=False, config=PLOTLY_CONFIG)
     st.markdown(
