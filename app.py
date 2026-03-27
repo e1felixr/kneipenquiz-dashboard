@@ -279,6 +279,9 @@ PLOTLY_LAYOUT = dict(
     hoverlabel=dict(bgcolor="#ffffff", font_color="#1f2937", bordercolor="#7f8c8d"),
 )
 
+# Disable zoom/pan on touch devices to allow smooth scrolling
+PLOTLY_CONFIG = {"scrollZoom": False, "displayModeBar": False}
+
 # Gedeckte aber klar unterscheidbare Farben – 11 Kategorien
 CAT_COLORS = [
     "#4e79a7", "#f28e2b", "#76b7b2", "#e15759", "#59a14f",
@@ -380,7 +383,7 @@ with col1:
         showlegend=False,
         height=420,
     )
-    st.plotly_chart(fig_radar, use_container_width=True)
+    st.plotly_chart(fig_radar, use_container_width=True, config=PLOTLY_CONFIG)
 
 with col2:
     # Dual axis: Placement (inverted) + % correct
@@ -453,7 +456,7 @@ with col2:
         height=420,
         bargap=0.4,
     )
-    st.plotly_chart(fig_trend, use_container_width=True)
+    st.plotly_chart(fig_trend, use_container_width=True, config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -496,7 +499,7 @@ with col1:
         yaxis=dict(tickfont=dict(size=12)),
         height=420,
     )
-    st.plotly_chart(fig_rank, use_container_width=True)
+    st.plotly_chart(fig_rank, use_container_width=True, config=PLOTLY_CONFIG)
 
 with col2:
     # Heatmap – Categories x Months
@@ -525,7 +528,7 @@ with col2:
         yaxis=dict(tickfont=dict(size=11)),
         height=420,
     )
-    st.plotly_chart(fig_heat, use_container_width=True)
+    st.plotly_chart(fig_heat, use_container_width=True, config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -604,11 +607,10 @@ fig_dev.update_layout(
     barmode="stack",
     yaxis=dict(title="Gesamtpunkte", gridcolor="rgba(0,0,0,0.05)"),
     xaxis=dict(gridcolor="rgba(0,0,0,0.05)"),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5,
-                font=dict(size=11)),
+    showlegend=False,
     height=480,
 )
-st.plotly_chart(fig_dev, use_container_width=True)
+st.plotly_chart(fig_dev, use_container_width=True, config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -643,7 +645,7 @@ with col1:
         xaxis=dict(tickfont=dict(size=9), tickangle=0),
         height=420,
     )
-    st.plotly_chart(fig_sonder, use_container_width=True)
+    st.plotly_chart(fig_sonder, use_container_width=True, config=PLOTLY_CONFIG)
 
 with col2:
     # Joker analysis – actual vs. max potential (stacked: actual + verschenkt)
@@ -670,7 +672,7 @@ with col2:
         x=joker_months,
         y=joker_wasted,
         name="Verschenkte Punkte",
-        text=[f"-{w}" for w in joker_wasted],
+        text=[f"{w}" for w in joker_wasted],
         textposition="inside",
         textangle=-90,
         textfont=dict(color="#ffffff", size=12),
@@ -690,7 +692,7 @@ with col2:
         height=400,
         bargap=0.3,
     )
-    st.plotly_chart(fig_joker, use_container_width=True)
+    st.plotly_chart(fig_joker, use_container_width=True, config=PLOTLY_CONFIG)
     # Joker detail info
     joker_details = " | ".join(
         f"**{q['Monat']}:** {q['Joker1']} ({q['cat_scores'].get(q['Joker1'],0)}) + "
@@ -738,7 +740,7 @@ with col3:
         yaxis=dict(tickfont=dict(size=11)),
         height=400,
     )
-    st.plotly_chart(fig_cons, use_container_width=True)
+    st.plotly_chart(fig_cons, use_container_width=True, config=PLOTLY_CONFIG)
     st.markdown(
         '<p class="info-text">Niedrige Werte = stabile Leistung über alle Abende. '
         'Hohe Werte = starke Schwankungen zwischen den Quizabenden.</p>',
