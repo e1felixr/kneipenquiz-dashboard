@@ -738,24 +738,11 @@ with col2:
     fig_joker.add_trace(go.Bar(
         x=joker_months,
         y=joker_actual,
-        name="Erzielte Joker-Punkte",
         text=[f"{a}/10" for a in joker_actual],
-        textposition="inside",
-        textangle=-90,
-        textfont=dict(color="#ffffff", size=12),
+        textposition="outside",
+        textfont=dict(color="#374151", size=12),
         marker=dict(color="#2171b5", line=dict(width=0)),
         hovertemplate="%{x}: %{y} Joker-Punkte erzielt<extra></extra>",
-    ))
-    fig_joker.add_trace(go.Bar(
-        x=joker_months,
-        y=joker_wasted,
-        name="Verschenkte Punkte",
-        text=[f"{w}" for w in joker_wasted],
-        textposition="inside",
-        textangle=-90,
-        textfont=dict(color="#ffffff", size=12),
-        marker=dict(color="#d94f4f", opacity=0.6, line=dict(width=0)),
-        hovertemplate="%{x}: %{y} Punkte verschenkt<extra></extra>",
     ))
 
     avg_joker_pct = np.mean(joker_pct)
@@ -763,10 +750,9 @@ with col2:
         **PLOTLY_LAYOUT,
         title=dict(text=f"Joker-Ausbeute (Ø {avg_joker_pct:.0%} von max. 10)",
                    font=dict(size=16)),
-        barmode="stack",
         yaxis=dict(range=[0, 11], gridcolor="rgba(0,0,0,0.05)", title="Punkte",
                    dtick=2),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+        showlegend=False,
         height=400,
         bargap=0.3,
     )
