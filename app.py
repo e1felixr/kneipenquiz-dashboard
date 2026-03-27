@@ -112,14 +112,6 @@ st.markdown("""
         padding: 0.5rem;
     }
 
-    /* Center numeric cells in Streamlit dataframes (glide-data-grid) */
-    [data-testid="stDataFrame"] [role="gridcell"] {
-        text-align: center !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-    }
-
     /* Divider */
     .divider {
         height: 1px;
@@ -323,32 +315,54 @@ for q in quiz_nights:
     detail_rows_data.append(row)
 
 df_detail = pd.DataFrame(detail_rows_data)
-st.dataframe(
-    df_detail,
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        "Gesamt": st.column_config.ProgressColumn(
-            "Gesamt", min_value=0, max_value=50, format="%d Pkt.",
-        ),
-    },
-)
+
+# Styling helper: center specific columns, color Gesamt as bar
+center_1 = ["Teil 1", "Teil 2", "Teil 3", "Teil 4", "Bonus", "Gesamt", "% richtig", "Platz", "von"]
+
+def align_cells(df, center_cols):
+    """Return Styler with centered numeric columns and left-aligned text."""
+    return (
+        df.style
+        .set_properties(subset=center_cols, **{"text-align": "center"})
+        .set_properties(subset=[c for c in df.columns if c not in center_cols], **{"text-align": "left"})
+        .set_table_styles([
+            {"selector": "th", "props": [("text-align", "center"), ("font-size", "0.85rem"),
+                                          ("color", "#6b7280"), ("border-bottom", "2px solid #d1d5db"),
+                                          ("padding", "6px 10px")]},
+            {"selector": "td", "props": [("padding", "5px 10px"), ("font-size", "0.9rem"),
+                                          ("border-bottom", "1px solid #eee")]},
+            {"selector": "table", "props": [("width", "100%")]},
+            {"selector": "", "props": [("overflow-x", "auto")]},
+        ])
+        .hide(axis="index")
+    )
+
+st.markdown(align_cells(df_detail, center_1).to_html(), unsafe_allow_html=True)
 
 st.markdown("**Punkte pro Kategorie und Monat:**")
 df_show = df_cat[["Kategorie", "Platz", "Mittelwert"] + months].copy()
-df_show["Mittelwert"] = df_show["Mittelwert"].round(2)
+df_show["Mittelwert"] = df_show["Mittelwert"].round(1)
 df_show = df_show.sort_values("Platz")
 
-st.dataframe(
-    df_show,
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        "Mittelwert": st.column_config.ProgressColumn(
-            "Ø", min_value=0, max_value=5, format="%.1f",
-        ),
-    },
+center_2 = ["Platz", "Mittelwert"] + months
+
+def color_score(val):
+    """Background gradient for scores 0-5."""
+    try:
+        v = float(val)
+        pct = v / 5
+        r = int(220 - pct * 80)
+        g = int(220 - pct * 40)
+        b = int(220 + pct * 35)
+        return f"background-color: rgb({r},{g},{b}); color: #374151"
+    except (ValueError, TypeError):
+        return ""
+
+styled_show = (
+    align_cells(df_show, center_2)
+    .map(color_score, subset=months)
 )
+st.markdown(styled_show.to_html(), unsafe_allow_html=True)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
