@@ -556,8 +556,6 @@ for m in months:
 # Each slot can have a different category per month
 n_cats = len(all_cats)
 cumulative2 = {m: 0 for m in months}
-all_connector_x = []
-all_connector_y = []
 
 for slot in range(n_cats):
     slot_vals = []
@@ -572,13 +570,8 @@ for slot in range(n_cats):
     short_labels = [CAT_SHORT.get(c, c) if v >= 2 else "" for c, v in zip(slot_cats, slot_vals)]
     hover_labels = [f"{m}: {c} {v}/5" for m, c, v in zip(months, slot_cats, slot_vals)]
 
-    # Track tops for connectors
-    tops2 = []
     for j, m in enumerate(months):
-        tops2.append(cumulative2[m] + slot_vals[j])
         cumulative2[m] += slot_vals[j]
-    all_connector_x.extend([j + bar_half, j + 1 - bar_half, None] for j in range(len(months) - 1))
-    all_connector_y.extend([tops2[j], tops2[j + 1], None] for j in range(len(months) - 1))
 
     fig_dev2.add_trace(go.Bar(
         x=months,
@@ -595,15 +588,6 @@ for slot in range(n_cats):
         hovertext=hover_labels,
         hovertemplate="%{hovertext}<extra></extra>",
     ))
-
-# Single connector trace instead of 55 shapes
-flat_cx = [v for seg in all_connector_x for v in seg]
-flat_cy = [v for seg in all_connector_y for v in seg]
-fig_dev2.add_trace(go.Scatter(
-    x=flat_cx, y=flat_cy, mode="lines",
-    line=dict(color="rgba(0,0,0,0.18)", width=1),
-    showlegend=False, hoverinfo="skip",
-))
 
 fig_dev2.update_layout(
     **PLOTLY_LAYOUT,
