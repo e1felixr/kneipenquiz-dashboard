@@ -286,7 +286,7 @@ kpi_data2 = [
     ("Meiste Verbesserung", most_improved,
      f"+{improvements[most_improved]:.1f} Pkt. (Ø erste 2 vs. letzte 2 Abende)", ""),
     ("Perfekte Runden", f"{len(perfect_scores)}x 5/5" if perfect_scores else "–",
-     ", ".join(perfect_scores[:3]) if perfect_scores else "–", ""),
+     ", ".join(perfect_scores) if perfect_scores else "–", ""),
 ]
 for col, (label, value, sub, cls) in zip(cols2, kpi_data2):
     sub_cls = f"kpi-sub {cls}" if cls else "kpi-sub"
