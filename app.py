@@ -273,11 +273,19 @@ df_no_sonder = df_cat[df_cat["Kategorie"] != "Sonderrunde"]
 best_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmax()]
 worst_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmin()]
 
-perfect_scores = []
+perfect_by_cat = {}
 for m in months:
     for _, row in df_cat.iterrows():
         if row[m] == 5:
-            perfect_scores.append(f"{row['Kategorie']} ({m})")
+            cat = row["Kategorie"]
+            perfect_by_cat.setdefault(cat, []).append(m)
+perfect_labels = []
+for cat, ms in perfect_by_cat.items():
+    if len(ms) == 1:
+        perfect_labels.append(f"{cat} ({ms[0]})")
+    else:
+        perfect_labels.append(f"{cat} ({', '.join(ms)})")
+perfect_count = sum(len(ms) for ms in perfect_by_cat.values())
 
 improvements = {}
 for _, row in df_no_sonder.iterrows():
@@ -291,8 +299,8 @@ kpi_data2 = [
     ("Schwächste Kategorie", worst_cat["Kategorie"], f"Ø {worst_cat['Mittelwert']:.1f}/5", "bad"),
     ("Meiste Verbesserung", most_improved,
      f"+{improvements[most_improved]:.1f} Pkt. (Ø erste 2 vs. letzte 2 Abende)", ""),
-    ("Perfekte Runden", f"{len(perfect_scores)}x 5/5" if perfect_scores else "–",
-     ", ".join(perfect_scores) if perfect_scores else "–", ""),
+    ("Perfekte Runden", f"{perfect_count}x 5/5" if perfect_count else "–",
+     ", ".join(perfect_labels) if perfect_labels else "–", ""),
 ]
 for col, (label, value, sub, cls) in zip(cols2, kpi_data2):
     sub_cls = f"kpi-sub {cls}" if cls else "kpi-sub"
