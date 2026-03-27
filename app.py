@@ -118,6 +118,42 @@ st.markdown("""
         margin-top: -0.5rem;
         margin-bottom: 0.5rem;
     }
+
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .dashboard-header h1 {
+            font-size: 1.6rem;
+        }
+        .dashboard-header p {
+            font-size: 0.9rem;
+        }
+        .kpi-value {
+            font-size: 1.4rem;
+        }
+        .kpi-label {
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+        }
+        .kpi-sub {
+            font-size: 0.75rem;
+        }
+        .kpi-card {
+            padding: 0.8rem 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .section-title {
+            font-size: 1.1rem;
+        }
+        /* Force Streamlit columns to stack vertically */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+        }
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
