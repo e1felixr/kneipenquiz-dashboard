@@ -18,7 +18,9 @@ st.set_page_config(
 # Custom CSS – technical, clean look
 # ---------------------------------------------------------------------------
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 <style>
     /* Font */
     *, .stApp, .stMarkdown, .stDataFrame, p, span, div, h1, h2, h3, h4, h5, h6 {
@@ -151,6 +153,10 @@ st.markdown("""
         }
         .section-title {
             font-size: 1.1rem;
+        }
+        /* Smaller charts on mobile */
+        .stPlotlyChart {
+            max-height: 300px;
         }
         /* Force Streamlit columns to stack vertically */
         [data-testid="stHorizontalBlock"] {
@@ -550,7 +556,8 @@ for m in months:
 # Each slot can have a different category per month
 n_cats = len(all_cats)
 cumulative2 = {m: 0 for m in months}
-connector_shapes2 = []
+all_connector_x = []
+all_connector_y = []
 
 for slot in range(n_cats):
     slot_vals = []
@@ -570,6 +577,8 @@ for slot in range(n_cats):
     for j, m in enumerate(months):
         tops2.append(cumulative2[m] + slot_vals[j])
         cumulative2[m] += slot_vals[j]
+    all_connector_x.extend([j + bar_half, j + 1 - bar_half, None] for j in range(len(months) - 1))
+    all_connector_y.extend([tops2[j], tops2[j + 1], None] for j in range(len(months) - 1))
 
     fig_dev2.add_trace(go.Bar(
         x=months,
@@ -587,18 +596,16 @@ for slot in range(n_cats):
         hovertemplate="%{hovertext}<extra></extra>",
     ))
 
-    # Connector lines
-    for j in range(len(months) - 1):
-        connector_shapes2.append(dict(
-            type="line",
-            x0=j + bar_half, y0=tops2[j],
-            x1=j + 1 - bar_half, y1=tops2[j + 1],
-            xref="x", yref="y",
-            line=dict(color="rgba(0,0,0,0.18)", width=1),
-        ))
+# Single connector trace instead of 55 shapes
+flat_cx = [v for seg in all_connector_x for v in seg]
+flat_cy = [v for seg in all_connector_y for v in seg]
+fig_dev2.add_trace(go.Scatter(
+    x=flat_cx, y=flat_cy, mode="lines",
+    line=dict(color="rgba(0,0,0,0.18)", width=1),
+    showlegend=False, hoverinfo="skip",
+))
 
 fig_dev2.update_layout(
-    shapes=connector_shapes2,
     **PLOTLY_LAYOUT,
     title=dict(text="Punkte pro Kategorie (sortiert, beste unten)", font=dict(size=16)),
     barmode="stack",
