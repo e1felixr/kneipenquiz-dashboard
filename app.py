@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
-import openpyxl
 import numpy as np
-from datetime import datetime
+import json
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -154,119 +152,31 @@ st.markdown("""
             min-width: 100% !important;
         }
     }
+
+    /* Horizontal scroll for dataframes on all screens */
+    [data-testid="stDataFrame"] > div {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Load & parse data
+# Load pre-computed data from JSON (fast, no openpyxl needed)
 # ---------------------------------------------------------------------------
 import pathlib
-EXCEL_PATH = pathlib.Path(__file__).parent / "Kneipenquiz.xlsx"
+DATA_PATH = pathlib.Path(__file__).parent / "data.json"
 
 @st.cache_data
 def load_data():
-    wb = openpyxl.load_workbook(EXCEL_PATH, data_only=True)
-    ws = wb["Tabelle1"]
-
-    # --- Summary table (rows 4-16) ---
-    categories = []
-    for row in ws.iter_rows(min_row=5, max_row=16, min_col=2, max_col=11, values_only=True):
-        categories.append({
-            "Kategorie": row[0],
-            "Platz": row[1],
-            "Punkte_gesamt": row[2],
-            "Mittelwert": row[3],
-            "Apr 25": row[4],
-            "Mai 25": row[5],
-            "Jul 25": row[6],
-            "Sep 25": row[7],
-            "Jan 26": row[8],
-            "Mrz 26": row[9],
-        })
-    df_cat = pd.DataFrame(categories)
-
-    # Month labels
+    with open(DATA_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    df_cat = pd.DataFrame(data["categories"])
     months = ["Apr 25", "Mai 25", "Jul 25", "Sep 25", "Jan 26", "Mrz 26"]
+    quiz_nights = data["quiz_nights"]
+    return df_cat, months, quiz_nights
 
-    # --- Anteil richtige Antworten (row 18) ---
-    pct_row = []
-    for col_idx in range(6, 12):  # F-K
-        pct_row.append(ws.cell(row=18, column=col_idx).value)
-
-    # --- Detail table (quiz nights) ---
-    quiz_nights = []
-    detail_rows = [(22, 23), (24, 25), (26, 27), (28, 29), (30, 31), (32, 33)]
-    for header_row, score_row in detail_rows:
-        date_val = ws.cell(row=header_row, column=2).value
-        if isinstance(date_val, datetime):
-            month_label = date_val.strftime("%b %y")
-        else:
-            month_label = str(date_val)
-
-        # Map month_label to our standard labels
-        label_map = {
-            "Apr 25": "Apr 25", "May 25": "Mai 25", "Jul 25": "Jul 25",
-            "Sep 25": "Sep 25", "Jan 26": "Jan 26", "Mar 26": "Mrz 26",
-        }
-        month_label = label_map.get(month_label, month_label)
-
-        # Two jokers per night
-        joker1 = ws.cell(row=header_row, column=3).value
-        joker2 = ws.cell(row=score_row, column=3).value
-        sonderrunde_thema = ws.cell(row=header_row, column=4).value
-
-        # Category order for this night
-        cat_positions = {}
-        for pos, col in [(1, 5), (2, 6), (3, 7), (4, 9), (5, 10), (6, 11),
-                         (7, 13), (8, 14), (9, 15), (10, 17), (11, 18), (12, 19)]:
-            cat_positions[pos] = ws.cell(row=header_row, column=col).value
-
-        # Scores
-        scores = {}
-        for pos, col in [(1, 5), (2, 6), (3, 7), (4, 9), (5, 10), (6, 11),
-                         (7, 13), (8, 14), (9, 15), (10, 17), (11, 18), (12, 19)]:
-            scores[pos] = ws.cell(row=score_row, column=col).value or 0
-
-        # Teil subtotals
-        teil1 = ws.cell(row=score_row, column=8).value or 0
-        teil2 = ws.cell(row=score_row, column=12).value or 0
-        teil3 = ws.cell(row=score_row, column=16).value or 0
-        teil4 = ws.cell(row=score_row, column=20).value or 0
-
-        bonus = ws.cell(row=score_row, column=25).value or 0
-        gesamt = ws.cell(row=score_row, column=26).value or 0
-        pct_richtig = ws.cell(row=score_row, column=27).value or 0
-        platzierung = ws.cell(row=score_row, column=28).value
-        von = ws.cell(row=score_row, column=29).value
-
-        # Build category->score mapping for this night
-        cat_scores = {}
-        for pos in cat_positions:
-            cat_scores[cat_positions[pos]] = scores[pos]
-
-        quiz_nights.append({
-            "Monat": month_label,
-            "Joker1": joker1,
-            "Joker2": joker2,
-            "Sonderrunde_Thema": sonderrunde_thema,
-            "cat_positions": cat_positions,
-            "cat_scores": cat_scores,
-            "scores": scores,
-            "Teil1": teil1,
-            "Teil2": teil2,
-            "Teil3": teil3,
-            "Teil4": teil4,
-            "Bonus": bonus,
-            "Gesamt": gesamt,
-            "Pct_richtig": pct_richtig,
-            "Platzierung": platzierung,
-            "Von": von,
-        })
-
-    return df_cat, months, pct_row, quiz_nights
-
-
-df_cat, months, pct_row, quiz_nights = load_data()
+df_cat, months, quiz_nights = load_data()
 
 # ---------------------------------------------------------------------------
 # Plotly theme defaults
