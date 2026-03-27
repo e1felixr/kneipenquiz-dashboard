@@ -315,41 +315,32 @@ for q in quiz_nights:
     detail_rows_data.append(row)
 
 df_detail = pd.DataFrame(detail_rows_data)
-
-# Columns to center
-center_cols_1 = ["Teil 1", "Teil 2", "Teil 3", "Teil 4", "Bonus", "Gesamt", "% richtig", "Platz", "von"]
-left_cols_1 = [c for c in df_detail.columns if c not in center_cols_1]
-
-def styled_table(df, center_cols):
-    """Render dataframe as HTML with centered numeric columns."""
-    styles = []
-    for col in df.columns:
-        if col in center_cols:
-            styles.append("text-align: center")
-        else:
-            styles.append("text-align: left")
-    header = "".join(
-        f'<th style="{s}; padding:6px 10px; border-bottom:2px solid #d1d5db; font-size:0.85rem; color:#6b7280;">{c}</th>'
-        for c, s in zip(df.columns, styles)
-    )
-    rows_html = ""
-    for _, row in df.iterrows():
-        cells = "".join(
-            f'<td style="{s}; padding:5px 10px; border-bottom:1px solid #e5e7eb; font-size:0.9rem;">{row[c]}</td>'
-            for c, s in zip(df.columns, styles)
-        )
-        rows_html += f"<tr>{cells}</tr>"
-    return f'<div style="overflow-x:auto; -webkit-overflow-scrolling:touch;"><table style="width:100%; border-collapse:collapse;"><thead><tr>{header}</tr></thead><tbody>{rows_html}</tbody></table></div>'
-
-st.markdown(styled_table(df_detail, center_cols_1), unsafe_allow_html=True)
+st.dataframe(
+    df_detail,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Gesamt": st.column_config.ProgressColumn(
+            "Gesamt", min_value=0, max_value=50, format="%d Pkt.",
+        ),
+    },
+)
 
 st.markdown("**Punkte pro Kategorie und Monat:**")
 df_show = df_cat[["Kategorie", "Platz", "Mittelwert"] + months].copy()
-df_show["Mittelwert"] = df_show["Mittelwert"].round(1)
+df_show["Mittelwert"] = df_show["Mittelwert"].round(2)
 df_show = df_show.sort_values("Platz")
 
-center_cols_2 = ["Platz", "Mittelwert"] + months
-st.markdown(styled_table(df_show, center_cols_2), unsafe_allow_html=True)
+st.dataframe(
+    df_show,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Mittelwert": st.column_config.ProgressColumn(
+            "Ø", min_value=0, max_value=5, format="%.1f",
+        ),
+    },
+)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
