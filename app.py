@@ -623,47 +623,44 @@ with col1:
     st.plotly_chart(fig_sonder, use_container_width=True, config=PLOTLY_CONFIG)
 
 with col2:
-    # Joker analysis – actual vs. max potential (stacked: actual + verschenkt)
+    # Joker analysis – doubles score only if >= 3 correct
     joker_months = [q["Monat"] for q in quiz_nights]
     joker1_scores = [q["cat_scores"].get(q["Joker1"], 0) for q in quiz_nights]
     joker2_scores = [q["cat_scores"].get(q["Joker2"], 0) for q in quiz_nights]
-    joker_actual = [j1 + j2 for j1, j2 in zip(joker1_scores, joker2_scores)]
-    joker_wasted = [10 - a for a in joker_actual]
-    joker_pct = [a / 10 for a in joker_actual]
+    # Bonus only triggers at >= 3
+    joker_bonus = [
+        (j1 if j1 >= 3 else 0) + (j2 if j2 >= 3 else 0)
+        for j1, j2 in zip(joker1_scores, joker2_scores)
+    ]
+    max_bonus = 10  # 2 × 5
+    joker_pct = [b / max_bonus for b in joker_bonus]
 
     fig_joker = go.Figure()
     fig_joker.add_trace(go.Bar(
         x=joker_months,
-        y=joker_actual,
-        text=[f"{a}/10" for a in joker_actual],
+        y=joker_bonus,
+        text=[f"{b}/{max_bonus}" for b in joker_bonus],
         textposition="outside",
         textfont=dict(color="#374151", size=12),
         marker=dict(color="#2171b5", line=dict(width=0)),
-        hovertemplate="%{x}: %{y} Joker-Punkte erzielt<extra></extra>",
+        hovertemplate="%{x}: %{y} Joker-Bonus<extra></extra>",
     ))
 
     avg_joker_pct = np.mean(joker_pct)
     fig_joker.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text=f"Joker-Ausbeute (Ø {avg_joker_pct:.0%} von max. 10)",
+        title=dict(text=f"Joker-Bonus (Ø {avg_joker_pct:.0%} von max. {max_bonus})",
                    font=dict(size=16)),
-        yaxis=dict(range=[0, 11], gridcolor="rgba(0,0,0,0.05)", title="Punkte",
+        yaxis=dict(range=[0, 11], gridcolor="rgba(0,0,0,0.05)", title="Bonuspunkte",
                    dtick=2),
         showlegend=False,
         height=400,
         bargap=0.3,
     )
     st.plotly_chart(fig_joker, use_container_width=True, config=PLOTLY_CONFIG)
-    # Joker detail info
-    joker_details = " | ".join(
-        f"**{q['Monat']}:** {q['Joker1']} ({q['cat_scores'].get(q['Joker1'],0)}) + "
-        f"{q['Joker2']} ({q['cat_scores'].get(q['Joker2'],0)})"
-        for q in quiz_nights
-    )
     st.markdown(
-        f'<p class="info-text">Joker verdoppelt die Punkte der Kategorie. '
-        f'Max. 2 × 5 = 10 Zusatzpunkte pro Abend. '
-        f'Insgesamt {sum(joker_wasted)} Punkte verschenkt.</p>',
+        '<p class="info-text">Joker verdoppelt die Kategorie-Punkte, '
+        'aber nur ab min. 3 Richtigen. Unter 3 verfällt der Joker.</p>',
         unsafe_allow_html=True,
     )
 
