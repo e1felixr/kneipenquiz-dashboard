@@ -280,7 +280,7 @@ PLOTLY_LAYOUT = dict(
 )
 
 # Disable zoom/pan on touch devices to allow smooth scrolling
-PLOTLY_CONFIG = {"scrollZoom": False, "displayModeBar": False}
+PLOTLY_CONFIG = {"staticPlot": True}
 
 # Gedeckte aber klar unterscheidbare Farben – 11 Kategorien
 CAT_COLORS = [
