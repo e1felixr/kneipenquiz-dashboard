@@ -30,6 +30,16 @@ st.markdown("""
         background: #ebedf0;
     }
 
+    /* Limit content width to 75% on desktop only */
+    @media (min-width: 769px) {
+        .block-container {
+            max-width: 75% !important;
+            margin: 0 auto !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+    }
+
     /* Header */
     .dashboard-header {
         text-align: center;
