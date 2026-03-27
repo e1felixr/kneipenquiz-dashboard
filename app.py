@@ -315,22 +315,28 @@ for q in quiz_nights:
     detail_rows_data.append(row)
 
 df_detail = pd.DataFrame(detail_rows_data)
+
+def centered(col_cfg):
+    """Inject alignment: center into column config dicts."""
+    col_cfg["alignment"] = "center"
+    return col_cfg
+
 st.dataframe(
     df_detail,
     use_container_width=True,
     hide_index=True,
     column_config={
-        "Teil 1": st.column_config.NumberColumn("Teil 1", format="%d"),
-        "Teil 2": st.column_config.NumberColumn("Teil 2", format="%d"),
-        "Teil 3": st.column_config.NumberColumn("Teil 3", format="%d"),
-        "Teil 4": st.column_config.NumberColumn("Teil 4", format="%d"),
-        "Bonus": st.column_config.NumberColumn("Bonus", format="%d"),
+        "Teil 1": centered(st.column_config.NumberColumn("Teil 1", format="%d")),
+        "Teil 2": centered(st.column_config.NumberColumn("Teil 2", format="%d")),
+        "Teil 3": centered(st.column_config.NumberColumn("Teil 3", format="%d")),
+        "Teil 4": centered(st.column_config.NumberColumn("Teil 4", format="%d")),
+        "Bonus": centered(st.column_config.NumberColumn("Bonus", format="%d")),
         "Gesamt": st.column_config.ProgressColumn(
             "Gesamt", min_value=0, max_value=50, format="%d Pkt.",
         ),
-        "% richtig": st.column_config.NumberColumn("% richtig", format="%.0f %%"),
-        "Platz": st.column_config.NumberColumn("Platz", format="%d."),
-        "von": st.column_config.NumberColumn("von", format="%d"),
+        "% richtig": centered(st.column_config.NumberColumn("% richtig", format="%.0f %%")),
+        "Platz": centered(st.column_config.NumberColumn("Platz", format="%d.")),
+        "von": centered(st.column_config.NumberColumn("von", format="%d")),
     },
 )
 
@@ -344,11 +350,11 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
     column_config={
-        "Platz": st.column_config.NumberColumn("Platz", format="%d"),
+        "Platz": centered(st.column_config.NumberColumn("Platz", format="%d")),
         "Mittelwert": st.column_config.ProgressColumn(
             "Ø", min_value=0, max_value=5, format="%.1f",
         ),
-        **{m: st.column_config.NumberColumn(m, format="%d") for m in months},
+        **{m: centered(st.column_config.NumberColumn(m, format="%d")) for m in months},
     },
 )
 
