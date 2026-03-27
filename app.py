@@ -268,7 +268,7 @@ best_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmax()]
 worst_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmin()]
 
 perfect_scores = []
-for _, row in df_no_sonder.iterrows():
+for _, row in df_cat.iterrows():
     for m in months:
         if row[m] == 5:
             perfect_scores.append(f"{row['Kategorie']} ({m})")
