@@ -308,7 +308,7 @@ for q in quiz_nights:
         "Teil 4": q["Teil4"],
         "Bonus": q["Bonus"],
         "Gesamt": q["Gesamt"],
-        "% richtig": q["Pct_richtig"],
+        "% richtig": round(q["Pct_richtig"] * 100),
         "Platz": q["Platzierung"],
         "von": q["Von"],
     }
