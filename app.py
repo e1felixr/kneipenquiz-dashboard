@@ -804,7 +804,10 @@ with col3:
     st.plotly_chart(fig_cons, use_container_width=True, config=PLOTLY_CONFIG)
     st.markdown(
         '<p class="info-text">Oben links = stark &amp; konstant (ideal). '
-        'Unten rechts = schwach &amp; schwankend.</p>',
+        'Unten rechts = schwach &amp; schwankend.<br>'
+        '<b>Joker-Tipp:</b> Kategorien oben links lohnen sich als Joker &ndash; '
+        'hohe Punktzahl ist dort am wahrscheinlichsten. '
+        'Kategorien rechts sind riskant: mal top, mal flop.</p>',
         unsafe_allow_html=True,
     )
 
