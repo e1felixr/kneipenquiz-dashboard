@@ -64,6 +64,10 @@ st.markdown("""
         border: 1px solid #d1d5db;
         border-radius: 8px;
         padding: 1.2rem 1rem;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
         text-align: center;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         transition: transform 0.2s, box-shadow 0.2s;
@@ -261,6 +265,8 @@ for col, (label, value, sub, cls) in zip(cols, kpi_data):
         <div class="{sub_cls}">{sub}</div>
     </div>
     """, unsafe_allow_html=True)
+
+st.markdown('<div style="margin-top: 1rem;"></div>', unsafe_allow_html=True)
 
 # --- Second row of KPI cards: category insights ---
 df_no_sonder = df_cat[df_cat["Kategorie"] != "Sonderrunde"]
