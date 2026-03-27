@@ -318,12 +318,12 @@ df_detail = pd.DataFrame(detail_rows_data)
 
 def centered(col_cfg):
     """Inject alignment into column config dicts."""
-    col_cfg["alignment"] = 2  # glide-data-grid: 0=left, 1=right, 2=center
+    col_cfg["alignment"] = "center"
     return col_cfg
 
 st.dataframe(
     df_detail,
-    use_container_width=True,
+    use_container_width=False,
     hide_index=True,
     column_config={
         "Teil 1": centered(st.column_config.NumberColumn("Teil 1", format="%d")),
@@ -347,7 +347,7 @@ df_show = df_show.sort_values("Platz")
 
 st.dataframe(
     df_show,
-    use_container_width=True,
+    use_container_width=False,
     hide_index=True,
     column_config={
         "Platz": centered(st.column_config.NumberColumn("Platz", format="%d")),
@@ -436,7 +436,7 @@ with st.container():
         height=420,
         bargap=0.4,
     )
-    st.plotly_chart(fig_trend, use_container_width=True, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_trend, use_container_width=False, config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -479,7 +479,7 @@ with col1:
         yaxis=dict(tickfont=dict(size=12)),
         height=420,
     )
-    st.plotly_chart(fig_rank, use_container_width=True, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_rank, use_container_width=False, config=PLOTLY_CONFIG)
 
 with col2:
     # Heatmap – Categories x Months
@@ -508,7 +508,7 @@ with col2:
         yaxis=dict(tickfont=dict(size=11)),
         height=420,
     )
-    st.plotly_chart(fig_heat, use_container_width=True, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_heat, use_container_width=False, config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -607,7 +607,7 @@ fig_dev2.update_layout(
     showlegend=False,
     height=480,
 )
-st.plotly_chart(fig_dev2, use_container_width=True, config=PLOTLY_CONFIG)
+st.plotly_chart(fig_dev2, use_container_width=False, config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -642,7 +642,7 @@ with col1:
         xaxis=dict(tickfont=dict(size=9), tickangle=0),
         height=420,
     )
-    st.plotly_chart(fig_sonder, use_container_width=True, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_sonder, use_container_width=False, config=PLOTLY_CONFIG)
 
 with col2:
     # Joker analysis – doubles score only if >= 3 correct
@@ -679,7 +679,7 @@ with col2:
         height=400,
         bargap=0.3,
     )
-    st.plotly_chart(fig_joker, use_container_width=True, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_joker, use_container_width=False, config=PLOTLY_CONFIG)
     st.markdown(
         '<p class="info-text">Joker verdoppelt die Kategorie-Punkte, '
         'aber nur ab min. 3 Richtigen. Unter 3 verfällt der Joker.</p>',
@@ -739,7 +739,7 @@ with col3:
                    range=[2, 3.8]),
         height=400,
     )
-    st.plotly_chart(fig_cons, use_container_width=True, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_cons, use_container_width=False, config=PLOTLY_CONFIG)
     st.markdown(
         '<p class="info-text">Oben links = stark &amp; konstant (ideal). '
         'Unten rechts = schwach &amp; schwankend.<br>'
