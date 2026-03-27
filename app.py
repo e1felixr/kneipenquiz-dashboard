@@ -432,46 +432,8 @@ st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 # ROW 1: Radar Chart + Placement Trend
 # ---------------------------------------------------------------------------
 st.markdown('<div class="section-title">Performance-Überblick</div>', unsafe_allow_html=True)
-col1, col2 = st.columns(2)
 
-with col1:
-    # Radar chart – category strengths (without Sonderrunde)
-    df_radar = df_cat[df_cat["Kategorie"] != "Sonderrunde"].copy()
-    df_radar = df_radar.sort_values("Mittelwert", ascending=False)
-
-    fig_radar = go.Figure()
-    fig_radar.add_trace(go.Scatterpolar(
-        r=df_radar["Mittelwert"].tolist() + [df_radar["Mittelwert"].iloc[0]],
-        theta=df_radar["Kategorie"].tolist() + [df_radar["Kategorie"].iloc[0]],
-        fill="toself",
-        fillcolor="rgba(33,113,181,0.12)",
-        line=dict(color="#2171b5", width=2.5),
-        marker=dict(size=8, color="#2171b5"),
-        name="Ø Punkte",
-        hovertemplate="%{theta}: %{r:.1f}/5<extra></extra>",
-    ))
-
-    fig_radar.update_layout(
-        **PLOTLY_LAYOUT,
-        title=dict(text="Kategorie-Stärken (Ø Punkte)", font=dict(size=16)),
-        polar=dict(
-            bgcolor="rgba(0,0,0,0)",
-            radialaxis=dict(
-                visible=True, range=[0, 5], showticklabels=True,
-                tickfont=dict(size=10, color="#6b7280"),
-                gridcolor="rgba(0,0,0,0.06)",
-            ),
-            angularaxis=dict(
-                tickfont=dict(size=11, color="#374151"),
-                gridcolor="rgba(0,0,0,0.06)",
-            ),
-        ),
-        showlegend=False,
-        height=420,
-    )
-    st.plotly_chart(fig_radar, use_container_width=True, config=PLOTLY_CONFIG)
-
-with col2:
+with st.container():
     # Dual axis: Placement (inverted) + % correct
     fig_trend = go.Figure()
 
@@ -640,72 +602,12 @@ CAT_SHORT = {
 
 df_dev = df_cat[df_cat["Kategorie"] != "Sonderrunde"].copy()
 df_dev = df_dev.sort_values("Mittelwert", ascending=False)
-fig_dev = go.Figure()
-
-# Cumulative tops per category for connector lines
-cumulative = {m: 0 for m in months}
-cat_tops = {}  # cat_index -> list of (month, cumulative_top)
-
-for i, (_, row) in enumerate(df_dev.iterrows()):
-    short = CAT_SHORT.get(row["Kategorie"], row["Kategorie"])
-    vals = [row[m] for m in months]
-    tops = []
-    for j, m in enumerate(months):
-        tops.append(cumulative[m] + vals[j])
-        cumulative[m] += vals[j]
-    cat_tops[i] = tops
-
-    # Only show label inside segment if height >= 2 (enough space)
-    texts = [short if v >= 2 else "" for v in vals]
-    fig_dev.add_trace(go.Bar(
-        x=months,
-        y=vals,
-        name=short,
-        text=texts,
-        textposition="inside",
-        insidetextanchor="middle",
-        textfont=dict(size=10, color="#ffffff"),
-        marker=dict(
-            color=CAT_COLORS[i % len(CAT_COLORS)],
-            line=dict(width=0.5, color="#ffffff"),
-        ),
-        hovertemplate="%{x}: %{y}/5<extra>" + row["Kategorie"] + "</extra>",
-    ))
-
-# Connector shapes: right edge of bar → left edge of next bar
-connector_shapes = []
-bar_half = 0.4  # half-width of bar in category units
-for i in range(len(df_dev)):
-    tops = cat_tops[i]
-    for j in range(len(months) - 1):
-        connector_shapes.append(dict(
-            type="line",
-            x0=j + bar_half, y0=tops[j],
-            x1=j + 1 - bar_half, y1=tops[j + 1],
-            xref="x", yref="y",
-            line=dict(color="rgba(0,0,0,0.18)", width=1),
-        ))
-
-fig_dev.update_layout(
-    shapes=connector_shapes,
-    **PLOTLY_LAYOUT,
-    title=dict(text="Punkte pro Kategorie über die Quizabende", font=dict(size=16)),
-    barmode="stack",
-    yaxis=dict(title="Gesamtpunkte", gridcolor="rgba(0,0,0,0.05)"),
-    xaxis=dict(gridcolor="rgba(0,0,0,0.05)"),
-    showlegend=False,
-    height=480,
-)
-st.plotly_chart(fig_dev, use_container_width=True, config=PLOTLY_CONFIG)
-
-# --- Second chart: each column sorted ascending by score ---
-fig_dev2 = go.Figure()
-
-# Build per-month data sorted by score ascending
 all_cats = df_dev["Kategorie"].tolist()
 cat_color_map = {cat: CAT_COLORS[i % len(CAT_COLORS)] for i, cat in enumerate(all_cats)}
+bar_half = 0.4
+fig_dev2 = go.Figure()
 
-# For each month, sort categories by their score (ascending = weakest at bottom)
+# For each month, sort categories by their score
 sorted_month_data = {}
 for m in months:
     cat_vals = [(cat, df_cat[df_cat["Kategorie"] == cat].iloc[0][m]) for cat in all_cats]
@@ -766,7 +668,7 @@ for slot in range(n_cats):
 fig_dev2.update_layout(
     shapes=connector_shapes2,
     **PLOTLY_LAYOUT,
-    title=dict(text="Kategorien sortiert nach Punktzahl (beste unten)", font=dict(size=16)),
+    title=dict(text="Punkte pro Kategorie (sortiert, beste unten)", font=dict(size=16)),
     barmode="stack",
     yaxis=dict(title="Gesamtpunkte", gridcolor="rgba(0,0,0,0.05)"),
     xaxis=dict(gridcolor="rgba(0,0,0,0.05)"),
