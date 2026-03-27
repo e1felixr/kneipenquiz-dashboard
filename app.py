@@ -158,6 +158,16 @@ st.markdown("""
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
     }
+
+    /* Center numeric columns in dataframes */
+    [data-testid="stDataFrame"] td {
+        text-align: center !important;
+    }
+    /* Keep first columns (text) left-aligned */
+    [data-testid="stDataFrame"] td:first-child,
+    [data-testid="stDataFrame"] td:nth-child(2) {
+        text-align: left !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
