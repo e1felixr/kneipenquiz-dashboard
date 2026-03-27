@@ -317,8 +317,8 @@ for q in quiz_nights:
 df_detail = pd.DataFrame(detail_rows_data)
 
 def centered(col_cfg):
-    """Inject alignment: center into column config dicts."""
-    col_cfg["alignment"] = "center"
+    """Inject alignment into column config dicts."""
+    col_cfg["alignment"] = 2  # glide-data-grid: 0=left, 1=right, 2=center
     return col_cfg
 
 st.dataframe(
