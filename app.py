@@ -327,7 +327,7 @@ kpi_data = [
     ("Beste Platzierung", f"{best_placement}.", f"{best_placement_q['Monat']} ({best_placement_q['Von']} Teams)", ""),
     ("Ø Platzierung", f"{avg_placement:.1f}",
      f"bei Ø {np.mean([q['Von'] for q in quiz_nights if q['Von']]):.1f} Teams", ""),
-    ("Trend", f"{trend_arrow} {abs(trend_delta):.0%}",
+    ("Trend Richtig-Quote", f"{trend_arrow} {abs(trend_delta):.0%}",
      f"vs. {quiz_nights[-2]['Monat']}", trend_class),
 ]
 
