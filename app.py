@@ -299,7 +299,7 @@ kpi_data2 = [
     ("Schwächste Kategorie", worst_cat["Kategorie"], f"Ø {worst_cat['Mittelwert']:.1f}/5", "bad"),
     ("Meiste Verbesserung", most_improved,
      f"+{improvements[most_improved]:.1f} Pkt. (Ø erste 2 vs. letzte 2 Abende)", ""),
-    ("Perfekte Runden", f"{perfect_count}x 5/5" if perfect_count else "–",
+    ("Perfekte Runden (5/5)", f"{perfect_count}x" if perfect_count else "–",
      ", ".join(perfect_labels) if perfect_labels else "–", ""),
 ]
 for col, (label, value, sub, cls) in zip(cols2, kpi_data2):
