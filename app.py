@@ -312,10 +312,10 @@ best_placement_q = min(
 )
 avg_placement = np.mean(placements) if placements else 0
 
-# Trend: first quiz vs last quiz
-first_pct = quiz_nights[0]["Pct_richtig"]
+# Trend: last quiz vs previous quiz
+prev_pct = quiz_nights[-2]["Pct_richtig"]
 last_pct = quiz_nights[-1]["Pct_richtig"]
-trend_delta = last_pct - first_pct
+trend_delta = last_pct - prev_pct
 trend_arrow = "↑" if trend_delta > 0 else "↓"
 trend_class = "" if trend_delta > 0 else "bad"
 
@@ -328,7 +328,7 @@ kpi_data = [
     ("Ø Platzierung", f"{avg_placement:.1f}",
      f"bei Ø {np.mean([q['Von'] for q in quiz_nights if q['Von']]):.1f} Teams", ""),
     ("Trend", f"{trend_arrow} {abs(trend_delta):.0%}",
-     f"Richtig-Quote {quiz_nights[0]['Monat']} vs. {quiz_nights[-1]['Monat']}", trend_class),
+     f"vs. Vorabend ({quiz_nights[-2]['Monat']})", trend_class),
 ]
 
 for col, (label, value, sub, cls) in zip(cols, kpi_data):
