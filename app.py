@@ -128,7 +128,7 @@ st.markdown("""
     /* Info text */
     .info-text {
         color: #6b7280;
-        font-size: 0.85rem;
+        font-size: 0.75rem;
         margin-top: -0.5rem;
         margin-bottom: 0.5rem;
     }
@@ -715,22 +715,36 @@ with col3:
         text=df_cons_sorted["Kategorie"],
     ))
 
-    # Labels with arrows, alternating directions to avoid overlap
-    arrow_angles = [30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 0]
+    # Labels with arrows – manually tuned per-point to avoid overlaps
+    # Order is sorted by Std ascending
+    cats_sorted = df_cons_sorted["Kategorie"].tolist()
+    label_offsets = {
+        "Kunst/Literatur":  (-60, 30),
+        "Geschichte":       (-50, -40),
+        "Geographie":       (50, -35),
+        "Rel./Mythol.":     (60, 25),
+        "Aktuelles":        (-30, -45),
+        "Film/Fernsehen":   (-70, 15),
+        "Wissensch./Natur": (-60, -20),
+        "Verschiedenes":    (55, -30),
+        "Essen/Trinken":    (30, 40),
+        "Sport":            (60, 15),
+        "Musik":            (50, -25),
+    }
     for i, row in df_cons_sorted.iterrows():
-        angle = arrow_angles[i % len(arrow_angles)]
+        cat = row["Kategorie"]
+        ax, ay = label_offsets.get(cat, (40, -30))
         fig_cons.add_annotation(
             x=row["Std"], y=row["Mittelwert"],
-            text=f"<b>{row['Kategorie']}</b>",
+            text=f"<b>{cat}</b>",
             showarrow=True,
             arrowhead=0,
             arrowwidth=1,
             arrowcolor="#9ca3af",
-            ax=40 * np.cos(np.radians(angle)),
-            ay=-40 * np.sin(np.radians(angle)),
+            ax=ax, ay=ay,
             font=dict(size=10, color="#374151"),
-            bgcolor="rgba(255,255,255,0.85)",
-            borderpad=2,
+            bgcolor="rgba(255,255,255,0.9)",
+            borderpad=3,
         )
     fig_cons.update_layout(
         **PLOTLY_LAYOUT,
