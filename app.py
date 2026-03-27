@@ -1,0 +1,847 @@
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+import openpyxl
+import numpy as np
+from datetime import datetime
+
+# ---------------------------------------------------------------------------
+# Page config
+# ---------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Kneipenquiz Schwabach",
+    page_icon="🍺",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# ---------------------------------------------------------------------------
+# Custom CSS – technical, clean look
+# ---------------------------------------------------------------------------
+st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+    /* Font */
+    *, .stApp, .stMarkdown, .stDataFrame, p, span, div, h1, h2, h3, h4, h5, h6 {
+        font-family: 'Roboto', sans-serif !important;
+    }
+
+    /* Main background */
+    .stApp {
+        background: #ebedf0;
+    }
+
+    /* Header */
+    .dashboard-header {
+        text-align: center;
+        padding: 1.5rem 0 0.5rem 0;
+    }
+    .dashboard-header h1 {
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: #2c3e50;
+        margin-bottom: 0.2rem;
+    }
+    .dashboard-header p {
+        color: #6b7280;
+        font-size: 1.1rem;
+    }
+
+    /* KPI cards */
+    .kpi-card {
+        background: #ffffff;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 1.2rem 1rem;
+        text-align: center;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .kpi-label {
+        color: #6b7280;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-bottom: 0.3rem;
+    }
+    .kpi-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+    }
+    .kpi-sub {
+        color: #4b7c6f;
+        font-size: 0.85rem;
+        margin-top: 0.2rem;
+    }
+    .kpi-sub.bad { color: #9b4d4d; }
+
+    /* Section headers */
+    .section-title {
+        color: #2c3e50;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin: 2rem 0 0.8rem 0;
+        padding-bottom: 0.4rem;
+        border-bottom: 2px solid #7f8c8d;
+    }
+
+    /* Hide default streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Plotly chart containers */
+    .stPlotlyChart {
+        background: #ffffff;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 0.5rem;
+    }
+
+    /* Divider */
+    .divider {
+        height: 1px;
+        background: #d1d5db;
+        margin: 1.5rem 0;
+    }
+
+    /* Info text */
+    .info-text {
+        color: #6b7280;
+        font-size: 0.85rem;
+        margin-top: -0.5rem;
+        margin-bottom: 0.5rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# Load & parse data
+# ---------------------------------------------------------------------------
+EXCEL_PATH = r"C:\Users\Felix.Rundel\Desktop\Privat\Haushalt\Kneipenquiz.xlsx"
+
+@st.cache_data
+def load_data():
+    wb = openpyxl.load_workbook(EXCEL_PATH, data_only=True)
+    ws = wb["Tabelle1"]
+
+    # --- Summary table (rows 4-16) ---
+    categories = []
+    for row in ws.iter_rows(min_row=5, max_row=16, min_col=2, max_col=11, values_only=True):
+        categories.append({
+            "Kategorie": row[0],
+            "Platz": row[1],
+            "Punkte_gesamt": row[2],
+            "Mittelwert": row[3],
+            "Apr 25": row[4],
+            "Mai 25": row[5],
+            "Jul 25": row[6],
+            "Sep 25": row[7],
+            "Jan 26": row[8],
+            "Mrz 26": row[9],
+        })
+    df_cat = pd.DataFrame(categories)
+
+    # Month labels
+    months = ["Apr 25", "Mai 25", "Jul 25", "Sep 25", "Jan 26", "Mrz 26"]
+
+    # --- Anteil richtige Antworten (row 18) ---
+    pct_row = []
+    for col_idx in range(6, 12):  # F-K
+        pct_row.append(ws.cell(row=18, column=col_idx).value)
+
+    # --- Detail table (quiz nights) ---
+    quiz_nights = []
+    detail_rows = [(22, 23), (24, 25), (26, 27), (28, 29), (30, 31), (32, 33)]
+    for header_row, score_row in detail_rows:
+        date_val = ws.cell(row=header_row, column=2).value
+        if isinstance(date_val, datetime):
+            month_label = date_val.strftime("%b %y")
+        else:
+            month_label = str(date_val)
+
+        # Map month_label to our standard labels
+        label_map = {
+            "Apr 25": "Apr 25", "May 25": "Mai 25", "Jul 25": "Jul 25",
+            "Sep 25": "Sep 25", "Jan 26": "Jan 26", "Mar 26": "Mrz 26",
+        }
+        month_label = label_map.get(month_label, month_label)
+
+        # Two jokers per night
+        joker1 = ws.cell(row=header_row, column=3).value
+        joker2 = ws.cell(row=score_row, column=3).value
+        sonderrunde_thema = ws.cell(row=header_row, column=4).value
+
+        # Category order for this night
+        cat_positions = {}
+        for pos, col in [(1, 5), (2, 6), (3, 7), (4, 9), (5, 10), (6, 11),
+                         (7, 13), (8, 14), (9, 15), (10, 17), (11, 18), (12, 19)]:
+            cat_positions[pos] = ws.cell(row=header_row, column=col).value
+
+        # Scores
+        scores = {}
+        for pos, col in [(1, 5), (2, 6), (3, 7), (4, 9), (5, 10), (6, 11),
+                         (7, 13), (8, 14), (9, 15), (10, 17), (11, 18), (12, 19)]:
+            scores[pos] = ws.cell(row=score_row, column=col).value or 0
+
+        # Teil subtotals
+        teil1 = ws.cell(row=score_row, column=8).value or 0
+        teil2 = ws.cell(row=score_row, column=12).value or 0
+        teil3 = ws.cell(row=score_row, column=16).value or 0
+        teil4 = ws.cell(row=score_row, column=20).value or 0
+
+        bonus = ws.cell(row=score_row, column=25).value or 0
+        gesamt = ws.cell(row=score_row, column=26).value or 0
+        pct_richtig = ws.cell(row=score_row, column=27).value or 0
+        platzierung = ws.cell(row=score_row, column=28).value
+        von = ws.cell(row=score_row, column=29).value
+
+        # Build category->score mapping for this night
+        cat_scores = {}
+        for pos in cat_positions:
+            cat_scores[cat_positions[pos]] = scores[pos]
+
+        quiz_nights.append({
+            "Monat": month_label,
+            "Joker1": joker1,
+            "Joker2": joker2,
+            "Sonderrunde_Thema": sonderrunde_thema,
+            "cat_positions": cat_positions,
+            "cat_scores": cat_scores,
+            "scores": scores,
+            "Teil1": teil1,
+            "Teil2": teil2,
+            "Teil3": teil3,
+            "Teil4": teil4,
+            "Bonus": bonus,
+            "Gesamt": gesamt,
+            "Pct_richtig": pct_richtig,
+            "Platzierung": platzierung,
+            "Von": von,
+        })
+
+    return df_cat, months, pct_row, quiz_nights
+
+
+df_cat, months, pct_row, quiz_nights = load_data()
+
+# ---------------------------------------------------------------------------
+# Plotly theme defaults
+# ---------------------------------------------------------------------------
+PLOTLY_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(color="#374151", family="Roboto, sans-serif"),
+    margin=dict(l=40, r=40, t=50, b=50),
+    hoverlabel=dict(bgcolor="#ffffff", font_color="#1f2937", bordercolor="#7f8c8d"),
+)
+
+# Gedeckte aber klar unterscheidbare Farben – 11 Kategorien
+CAT_COLORS = [
+    "#4e79a7", "#f28e2b", "#76b7b2", "#e15759", "#59a14f",
+    "#edc948", "#b07aa1", "#9c755f", "#ff9da7", "#bab0ac",
+    "#a0cbe8",
+]
+
+# ---------------------------------------------------------------------------
+# HEADER
+# ---------------------------------------------------------------------------
+st.markdown("""
+<div class="dashboard-header">
+    <h1>🍺 Kneipenquiz Schwabach</h1>
+    <p>Performance-Dashboard &mdash; 6 Quizabende &mdash; Apr 2025 bis Mrz 2026</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# KPI CARDS
+# ---------------------------------------------------------------------------
+total_points = sum(q["Gesamt"] for q in quiz_nights)
+avg_pct = np.mean([q["Pct_richtig"] for q in quiz_nights])
+placements = [q["Platzierung"] for q in quiz_nights if q["Platzierung"] is not None]
+best_placement = min(placements) if placements else "–"
+best_placement_q = min(
+    [q for q in quiz_nights if q["Platzierung"] is not None],
+    key=lambda q: q["Platzierung"],
+)
+avg_placement = np.mean(placements) if placements else 0
+
+# Trend: first quiz vs last quiz
+first_pct = quiz_nights[0]["Pct_richtig"]
+last_pct = quiz_nights[-1]["Pct_richtig"]
+trend_delta = last_pct - first_pct
+trend_arrow = "↑" if trend_delta > 0 else "↓"
+trend_class = "" if trend_delta > 0 else "bad"
+
+cols = st.columns(6)
+kpi_data = [
+    ("Quizabende", "6", "seit Apr 2025", ""),
+    ("Gesamtpunkte", str(total_points), f"Ø {total_points/6:.0f} pro Abend", ""),
+    ("Ø Richtig", f"{avg_pct:.0%}", f"von max. 60 Fragen", ""),
+    ("Beste Platzierung", f"{best_placement}.", f"{best_placement_q['Monat']} ({best_placement_q['Von']} Teams)", ""),
+    ("Ø Platzierung", f"{avg_placement:.1f}", f"über alle {len(placements)} Abende", ""),
+    ("Trend", f"{trend_arrow} {abs(trend_delta):.0%}",
+     f"{quiz_nights[0]['Monat']} → {quiz_nights[-1]['Monat']}", trend_class),
+]
+
+for col, (label, value, sub, cls) in zip(cols, kpi_data):
+    sub_cls = f"kpi-sub {cls}" if cls else "kpi-sub"
+    col.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">{label}</div>
+        <div class="kpi-value">{value}</div>
+        <div class="{sub_cls}">{sub}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# ROW 1: Radar Chart + Placement Trend
+# ---------------------------------------------------------------------------
+st.markdown('<div class="section-title">Performance-Überblick</div>', unsafe_allow_html=True)
+col1, col2 = st.columns(2)
+
+with col1:
+    # Radar chart – category strengths (without Sonderrunde)
+    df_radar = df_cat[df_cat["Kategorie"] != "Sonderrunde"].copy()
+    df_radar = df_radar.sort_values("Mittelwert", ascending=False)
+
+    fig_radar = go.Figure()
+    fig_radar.add_trace(go.Scatterpolar(
+        r=df_radar["Mittelwert"].tolist() + [df_radar["Mittelwert"].iloc[0]],
+        theta=df_radar["Kategorie"].tolist() + [df_radar["Kategorie"].iloc[0]],
+        fill="toself",
+        fillcolor="rgba(33,113,181,0.12)",
+        line=dict(color="#2171b5", width=2.5),
+        marker=dict(size=8, color="#2171b5"),
+        name="Ø Punkte",
+        hovertemplate="%{theta}: %{r:.1f}/5<extra></extra>",
+    ))
+
+    fig_radar.update_layout(
+        **PLOTLY_LAYOUT,
+        title=dict(text="Kategorie-Stärken (Ø Punkte)", font=dict(size=16)),
+        polar=dict(
+            bgcolor="rgba(0,0,0,0)",
+            radialaxis=dict(
+                visible=True, range=[0, 5], showticklabels=True,
+                tickfont=dict(size=10, color="#6b7280"),
+                gridcolor="rgba(0,0,0,0.06)",
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=11, color="#374151"),
+                gridcolor="rgba(0,0,0,0.06)",
+            ),
+        ),
+        showlegend=False,
+        height=420,
+    )
+    st.plotly_chart(fig_radar, use_container_width=True)
+
+with col2:
+    # Dual axis: Placement (inverted) + % correct
+    fig_trend = go.Figure()
+
+    months_plot = [q["Monat"] for q in quiz_nights]
+    placements_plot = [q["Platzierung"] for q in quiz_nights]
+    pct_plot = [q["Pct_richtig"] for q in quiz_nights]
+
+    fig_trend.add_trace(go.Bar(
+        x=months_plot, y=pct_plot,
+        name="% richtig",
+        marker=dict(
+            color=pct_plot,
+            colorscale=[[0, "#c6dbef"], [0.5, "#6baed6"], [1, "#2171b5"]],
+            line=dict(width=0),
+        ),
+        opacity=0.75,
+        yaxis="y",
+        hovertemplate="%{x}: %{y:.0%}<extra>% richtig</extra>",
+    ))
+
+    fig_trend.add_trace(go.Scatter(
+        x=months_plot, y=placements_plot,
+        name="Platzierung",
+        mode="lines+markers",
+        line=dict(color="#34495e", width=3),
+        marker=dict(size=10, color="#34495e", line=dict(width=2, color="#ffffff")),
+        yaxis="y2",
+        hovertemplate="%{x}: Platz %{y}<extra>Platzierung</extra>",
+    ))
+
+    # Synchronise both y-axes to 5 intervals
+    n_intervals = 5
+    max_raw = max(p for p in placements_plot if p is not None) + 2
+    max_nice = int(np.ceil(max_raw / n_intervals) * n_intervals)
+
+    # Add annotations for placement labels (fixed pixel offset, always readable)
+    annotations = []
+    for i, (m, p, q) in enumerate(zip(months_plot, placements_plot, quiz_nights)):
+        if p is not None:
+            label = f"{p}. / {q['Von']}" if q["Von"] else f"{p}."
+            # Normalise placement to y-position on yaxis2 (reversed: max_nice..0)
+            y_norm = 1 - (p / max_nice)
+            annotations.append(dict(
+                x=m, y=y_norm,
+                xref="x", yref="paper",
+                text=f"<b>{label}</b>",
+                showarrow=False,
+                font=dict(color="#34495e", size=12),
+                yshift=18,
+            ))
+
+    fig_trend.update_layout(
+        **PLOTLY_LAYOUT,
+        title=dict(text="Platzierung & Quote pro Quizabend", font=dict(size=16)),
+        annotations=annotations,
+        yaxis=dict(
+            title="% richtig", tickformat=".0%", range=[0, 1],
+            dtick=1 / n_intervals,
+            gridcolor="rgba(0,0,0,0.06)", side="left",
+        ),
+        yaxis2=dict(
+            title="Platzierung", overlaying="y", side="right",
+            range=[max_nice, 0],
+            dtick=max_nice / n_intervals,
+            showgrid=False,
+        ),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+        height=420,
+        bargap=0.4,
+    )
+    st.plotly_chart(fig_trend, use_container_width=True)
+
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# ROW 2: Category Ranking + Heatmap
+# ---------------------------------------------------------------------------
+st.markdown('<div class="section-title">Kategorie-Analyse</div>', unsafe_allow_html=True)
+col1, col2 = st.columns(2)
+
+with col1:
+    # Horizontal bar – category ranking
+    df_bar = df_cat[df_cat["Kategorie"] != "Sonderrunde"].sort_values("Mittelwert", ascending=True)
+
+    colors = []
+    for val in df_bar["Mittelwert"]:
+        if val >= 3.2:
+            colors.append("#08519c")
+        elif val >= 2.8:
+            colors.append("#2171b5")
+        elif val >= 2.5:
+            colors.append("#6baed6")
+        else:
+            colors.append("#c6dbef")
+
+    fig_rank = go.Figure()
+    fig_rank.add_trace(go.Bar(
+        y=df_bar["Kategorie"],
+        x=df_bar["Mittelwert"],
+        orientation="h",
+        marker=dict(color=colors, line=dict(width=0)),
+        text=[f"{v:.1f}" for v in df_bar["Mittelwert"]],
+        textposition="outside",
+        textfont=dict(color="#374151", size=13),
+        hovertemplate="%{y}: %{x:.2f}/5<extra></extra>",
+    ))
+    fig_rank.update_layout(
+        **PLOTLY_LAYOUT,
+        title=dict(text="Kategorie-Ranking (Ø Punkte)", font=dict(size=16)),
+        xaxis=dict(range=[0, 4.5], gridcolor="rgba(0,0,0,0.05)", title="Ø Punkte (max. 5)"),
+        yaxis=dict(tickfont=dict(size=12)),
+        height=420,
+    )
+    st.plotly_chart(fig_rank, use_container_width=True)
+
+with col2:
+    # Heatmap – Categories x Months
+    df_heat = df_cat[df_cat["Kategorie"] != "Sonderrunde"].set_index("Kategorie")[months]
+    # Sort by average descending
+    df_heat["avg"] = df_heat.mean(axis=1)
+    df_heat = df_heat.sort_values("avg", ascending=True).drop(columns="avg")
+
+    fig_heat = go.Figure(go.Heatmap(
+        z=df_heat.values,
+        x=df_heat.columns.tolist(),
+        y=df_heat.index.tolist(),
+        colorscale="RdYlBu",
+        reversescale=True,
+        zmin=0, zmax=5,
+        text=df_heat.values,
+        texttemplate="%{text}",
+        textfont=dict(size=14, color="#374151"),
+        hovertemplate="%{y} – %{x}: %{z}/5<extra></extra>",
+        colorbar=dict(title="Punkte", tickvals=[0, 1, 2, 3, 4, 5]),
+    ))
+    fig_heat.update_layout(
+        **PLOTLY_LAYOUT,
+        title=dict(text="Punkte-Heatmap (Kategorien x Monate)", font=dict(size=16)),
+        xaxis=dict(tickfont=dict(size=12)),
+        yaxis=dict(tickfont=dict(size=11)),
+        height=420,
+    )
+    st.plotly_chart(fig_heat, use_container_width=True)
+
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# ROW 3: Category Development over time (Line Chart)
+# ---------------------------------------------------------------------------
+st.markdown('<div class="section-title">Kategorie-Entwicklung</div>', unsafe_allow_html=True)
+
+# Short category names for legend
+CAT_SHORT = {
+    "Aktuelles": "Akt.",
+    "Essen/Trinken": "Essen",
+    "Film/Fernsehen": "Film",
+    "Geographie": "Geo.",
+    "Geschichte": "Gesch.",
+    "Kunst/Literatur": "Kunst",
+    "Musik": "Musik",
+    "Rel./Mythol.": "Rel.",
+    "Sport": "Sport",
+    "Verschiedenes": "Versch.",
+    "Wissensch./Natur": "Wissen.",
+}
+
+df_dev = df_cat[df_cat["Kategorie"] != "Sonderrunde"].copy()
+df_dev = df_dev.sort_values("Mittelwert", ascending=False)
+fig_dev = go.Figure()
+
+# Cumulative tops per category for connector lines
+cumulative = {m: 0 for m in months}
+cat_tops = {}  # cat_index -> list of (month, cumulative_top)
+
+for i, (_, row) in enumerate(df_dev.iterrows()):
+    short = CAT_SHORT.get(row["Kategorie"], row["Kategorie"])
+    vals = [row[m] for m in months]
+    tops = []
+    for j, m in enumerate(months):
+        tops.append(cumulative[m] + vals[j])
+        cumulative[m] += vals[j]
+    cat_tops[i] = tops
+
+    # Only show label inside segment if height >= 2 (enough space)
+    texts = [short if v >= 2 else "" for v in vals]
+    fig_dev.add_trace(go.Bar(
+        x=months,
+        y=vals,
+        name=short,
+        text=texts,
+        textposition="inside",
+        insidetextanchor="middle",
+        textfont=dict(size=10, color="#ffffff"),
+        marker=dict(
+            color=CAT_COLORS[i % len(CAT_COLORS)],
+            line=dict(width=0.5, color="#ffffff"),
+        ),
+        hovertemplate="%{x}: %{y}/5<extra>" + row["Kategorie"] + "</extra>",
+    ))
+
+# Connector shapes: right edge of bar → left edge of next bar
+connector_shapes = []
+bar_half = 0.4  # half-width of bar in category units
+for i in range(len(df_dev)):
+    tops = cat_tops[i]
+    for j in range(len(months) - 1):
+        connector_shapes.append(dict(
+            type="line",
+            x0=j + bar_half, y0=tops[j],
+            x1=j + 1 - bar_half, y1=tops[j + 1],
+            xref="x", yref="y",
+            line=dict(color="rgba(0,0,0,0.18)", width=1),
+        ))
+
+fig_dev.update_layout(
+    shapes=connector_shapes,
+    **PLOTLY_LAYOUT,
+    title=dict(text="Punkte pro Kategorie über die Quizabende", font=dict(size=16)),
+    barmode="stack",
+    yaxis=dict(title="Gesamtpunkte", gridcolor="rgba(0,0,0,0.05)"),
+    xaxis=dict(gridcolor="rgba(0,0,0,0.05)"),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5,
+                font=dict(size=11)),
+    height=480,
+)
+st.plotly_chart(fig_dev, use_container_width=True)
+
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# ROW 4: Sonderrunde + Joker + Consistency
+# ---------------------------------------------------------------------------
+st.markdown('<div class="section-title">Spezialauswertungen</div>', unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    # Sonderrunde analysis
+    sonder_themen = [q["Sonderrunde_Thema"] for q in quiz_nights]
+    sonder_scores = [q["cat_scores"].get("Sonderrunde", 0) for q in quiz_nights]
+    sonder_labels = [f"{t}<br>({q['Monat']})" for t, q in zip(sonder_themen, quiz_nights)]
+
+    sonder_colors = ["#2171b5" if s >= 4 else "#6baed6" if s >= 2 else "#c6dbef" for s in sonder_scores]
+
+    fig_sonder = go.Figure()
+    fig_sonder.add_trace(go.Bar(
+        x=sonder_labels,
+        y=sonder_scores,
+        marker=dict(color=sonder_colors, line=dict(width=0)),
+        text=sonder_scores,
+        textposition="outside",
+        textfont=dict(color="#374151", size=14),
+        hovertemplate="%{x}: %{y}/5 Punkte<extra>Sonderrunde</extra>",
+    ))
+    fig_sonder.update_layout(
+        **PLOTLY_LAYOUT,
+        title=dict(text="Sonderrunden-Ergebnisse", font=dict(size=16)),
+        yaxis=dict(range=[0, 6], gridcolor="rgba(0,0,0,0.05)", title="Punkte"),
+        xaxis=dict(tickfont=dict(size=9), tickangle=0),
+        height=420,
+    )
+    st.plotly_chart(fig_sonder, use_container_width=True)
+
+with col2:
+    # Joker analysis – actual vs. max potential (stacked: actual + verschenkt)
+    joker_months = [q["Monat"] for q in quiz_nights]
+    joker1_scores = [q["cat_scores"].get(q["Joker1"], 0) for q in quiz_nights]
+    joker2_scores = [q["cat_scores"].get(q["Joker2"], 0) for q in quiz_nights]
+    joker_actual = [j1 + j2 for j1, j2 in zip(joker1_scores, joker2_scores)]
+    joker_wasted = [10 - a for a in joker_actual]
+    joker_pct = [a / 10 for a in joker_actual]
+
+    fig_joker = go.Figure()
+    fig_joker.add_trace(go.Bar(
+        x=joker_months,
+        y=joker_actual,
+        name="Erzielte Joker-Punkte",
+        text=[f"{a}/10" for a in joker_actual],
+        textposition="inside",
+        textangle=-90,
+        textfont=dict(color="#ffffff", size=12),
+        marker=dict(color="#2171b5", line=dict(width=0)),
+        hovertemplate="%{x}: %{y} Joker-Punkte erzielt<extra></extra>",
+    ))
+    fig_joker.add_trace(go.Bar(
+        x=joker_months,
+        y=joker_wasted,
+        name="Verschenkte Punkte",
+        text=[f"-{w}" for w in joker_wasted],
+        textposition="inside",
+        textangle=-90,
+        textfont=dict(color="#ffffff", size=12),
+        marker=dict(color="#d94f4f", opacity=0.6, line=dict(width=0)),
+        hovertemplate="%{x}: %{y} Punkte verschenkt<extra></extra>",
+    ))
+
+    avg_joker_pct = np.mean(joker_pct)
+    fig_joker.update_layout(
+        **PLOTLY_LAYOUT,
+        title=dict(text=f"Joker-Ausbeute (Ø {avg_joker_pct:.0%} von max. 10)",
+                   font=dict(size=16)),
+        barmode="stack",
+        yaxis=dict(range=[0, 11], gridcolor="rgba(0,0,0,0.05)", title="Punkte",
+                   dtick=2),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+        height=400,
+        bargap=0.3,
+    )
+    st.plotly_chart(fig_joker, use_container_width=True)
+    # Joker detail info
+    joker_details = " | ".join(
+        f"**{q['Monat']}:** {q['Joker1']} ({q['cat_scores'].get(q['Joker1'],0)}) + "
+        f"{q['Joker2']} ({q['cat_scores'].get(q['Joker2'],0)})"
+        for q in quiz_nights
+    )
+    st.markdown(
+        f'<p class="info-text">Joker verdoppelt die Punkte der Kategorie. '
+        f'Max. 2 × 5 = 10 Zusatzpunkte pro Abend. '
+        f'Insgesamt {sum(joker_wasted)} Punkte verschenkt.</p>',
+        unsafe_allow_html=True,
+    )
+
+with col3:
+    # Consistency – std deviation per category
+    df_cons = df_cat[df_cat["Kategorie"] != "Sonderrunde"].copy()
+    df_cons["Std"] = df_cons[months].std(axis=1)
+    df_cons = df_cons.sort_values("Std", ascending=True)
+
+    cons_colors = []
+    for s in df_cons["Std"]:
+        if s <= 0.8:
+            cons_colors.append("#2171b5")
+        elif s <= 1.1:
+            cons_colors.append("#6baed6")
+        else:
+            cons_colors.append("#d94f4f")
+
+    fig_cons = go.Figure()
+    fig_cons.add_trace(go.Bar(
+        y=df_cons["Kategorie"],
+        x=df_cons["Std"],
+        orientation="h",
+        marker=dict(color=cons_colors, line=dict(width=0)),
+        text=[f"{v:.2f}" for v in df_cons["Std"]],
+        textposition="outside",
+        textfont=dict(color="#374151", size=12),
+        hovertemplate="%{y}: σ = %{x:.2f}<extra></extra>",
+    ))
+    fig_cons.update_layout(
+        **PLOTLY_LAYOUT,
+        title=dict(text="Konsistenz (Standardabweichung)", font=dict(size=16)),
+        xaxis=dict(range=[0, 2], gridcolor="rgba(0,0,0,0.05)",
+                   title="σ (niedriger = konstanter)"),
+        yaxis=dict(tickfont=dict(size=11)),
+        height=400,
+    )
+    st.plotly_chart(fig_cons, use_container_width=True)
+    st.markdown(
+        '<p class="info-text">Niedrige Werte = stabile Leistung über alle Abende. '
+        'Hohe Werte = starke Schwankungen zwischen den Quizabenden.</p>',
+        unsafe_allow_html=True,
+    )
+
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# ROW 5: Highlight insights
+# ---------------------------------------------------------------------------
+st.markdown('<div class="section-title">Highlights & Fun Facts</div>', unsafe_allow_html=True)
+
+# Calculate insights
+df_no_sonder = df_cat[df_cat["Kategorie"] != "Sonderrunde"]
+best_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmax()]
+worst_cat = df_no_sonder.loc[df_no_sonder["Mittelwert"].idxmin()]
+
+# Perfect scores (5/5)
+perfect_scores = []
+for _, row in df_no_sonder.iterrows():
+    for m in months:
+        if row[m] == 5:
+            perfect_scores.append(f"{row['Kategorie']} ({m})")
+
+# Zero scores
+zero_scores = []
+for _, row in df_cat.iterrows():
+    for m in months:
+        if row[m] == 0:
+            zero_scores.append(f"{row['Kategorie']} ({m})")
+
+# Most improved category (biggest positive delta first to last)
+improvements = {}
+for _, row in df_no_sonder.iterrows():
+    delta = np.mean([row["Jan 26"], row["Mrz 26"]]) - np.mean([row["Apr 25"], row["Mai 25"]])
+    improvements[row["Kategorie"]] = delta
+most_improved = max(improvements, key=improvements.get)
+most_declined = min(improvements, key=improvements.get)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Stärkste Kategorie</div>
+        <div class="kpi-value" style="font-size:1.3rem; color:#08519c;">{best_cat['Kategorie']}</div>
+        <div class="kpi-sub">Ø {best_cat['Mittelwert']:.1f}/5 Punkte</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Schwächste Kategorie</div>
+        <div class="kpi-value" style="font-size:1.3rem; color:#8a5b5b;">{worst_cat['Kategorie']}</div>
+        <div class="kpi-sub bad">Ø {worst_cat['Mittelwert']:.1f}/5 Punkte</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Meiste Verbesserung</div>
+        <div class="kpi-value" style="font-size:1.3rem; color:#2563eb;">{most_improved}</div>
+        <div class="kpi-sub">+{improvements[most_improved]:.1f} Pkt. (erste → letzte 2)</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    perfect_text = f"{len(perfect_scores)}x 5/5" if perfect_scores else "Noch keine!"
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Perfekte Runden (5/5)</div>
+        <div class="kpi-value" style="font-size:1.3rem; color:#7b6b4b;">{perfect_text}</div>
+        <div class="kpi-sub">{', '.join(perfect_scores[:3]) if perfect_scores else '–'}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# DETAIL TABLE
+# ---------------------------------------------------------------------------
+st.markdown('<div class="section-title">Rohdaten: Alle Quizabende</div>', unsafe_allow_html=True)
+
+# Build a clean detail dataframe
+detail_rows_data = []
+for q in quiz_nights:
+    row = {
+        "Monat": q["Monat"],
+        "Joker 1": q["Joker1"],
+        "Joker 2": q["Joker2"],
+        "Sonderrunde": q["Sonderrunde_Thema"],
+        "Teil 1": q["Teil1"],
+        "Teil 2": q["Teil2"],
+        "Teil 3": q["Teil3"],
+        "Teil 4": q["Teil4"],
+        "Bonus": q["Bonus"],
+        "Gesamt": q["Gesamt"],
+        "% richtig": f"{q['Pct_richtig']:.0%}",
+        "Platz": f"{q['Platzierung']}." if q["Platzierung"] else "–",
+        "von": q["Von"] or "–",
+    }
+    detail_rows_data.append(row)
+
+df_detail = pd.DataFrame(detail_rows_data)
+st.dataframe(
+    df_detail,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Gesamt": st.column_config.ProgressColumn(
+            "Gesamt", min_value=0, max_value=50, format="%d Pkt.",
+        ),
+    },
+)
+
+# Category detail table
+st.markdown("**Punkte pro Kategorie und Monat:**")
+df_show = df_cat[["Kategorie", "Platz", "Mittelwert"] + months].copy()
+df_show["Mittelwert"] = df_show["Mittelwert"].round(2)
+df_show = df_show.sort_values("Platz")
+
+st.dataframe(
+    df_show,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Mittelwert": st.column_config.ProgressColumn(
+            "Ø", min_value=0, max_value=5, format="%.1f",
+        ),
+    },
+)
+
+# ---------------------------------------------------------------------------
+# Footer
+# ---------------------------------------------------------------------------
+st.markdown("""
+<div style="text-align:center; color:#9ca3af; padding:2rem 0 1rem 0; font-size:0.8rem;">
+    Kneipenquiz Schwabach Dashboard &mdash; Datenquelle: Kneipenquiz.xlsx &mdash; Built with Streamlit & Plotly
+</div>
+""", unsafe_allow_html=True)
