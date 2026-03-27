@@ -718,18 +718,20 @@ with col3:
     # Labels with arrows – manually tuned per-point to avoid overlaps
     # Order is sorted by Std ascending
     cats_sorted = df_cons_sorted["Kategorie"].tolist()
+    # ax/ay = pixel offset from point to label (positive ax=right, positive ay=down)
+    # Manually tuned based on actual data positions to avoid all collisions
     label_offsets = {
-        "Kunst/Literatur":  (-60, 30),
-        "Geschichte":       (-50, -40),
-        "Geographie":       (50, -35),
-        "Rel./Mythol.":     (60, 25),
-        "Aktuelles":        (-30, -45),
-        "Film/Fernsehen":   (-70, 35),
-        "Wissensch./Natur": (65, -10),
-        "Verschiedenes":    (55, -30),
-        "Essen/Trinken":    (30, 40),
-        "Sport":            (60, 15),
-        "Musik":            (50, -25),
+        "Kunst/Literatur":  (-80, 20),    # Std=0.52 Mw=2.33 – links unten, isoliert
+        "Geographie":       (75, 20),     # Std=0.82 Mw=2.67 – rechts nach unten
+        "Geschichte":       (-75, -25),   # Std=0.82 Mw=3.33 – links oben
+        "Rel./Mythol.":     (75, -25),    # Std=0.82 Mw=2.67 – rechts nach oben (weg von Geo)
+        "Film/Fernsehen":   (-85, -10),   # Std=0.89 Mw=3.00 – weit links
+        "Wissensch./Natur": (-85, 30),    # Std=0.98 Mw=2.83 – links unten
+        "Aktuelles":        (20, -40),    # Std=1.03 Mw=3.33 – oben
+        "Essen/Trinken":    (75, 30),     # Std=1.05 Mw=2.50 – rechts unten
+        "Verschiedenes":    (-20, -40),   # Std=1.27 Mw=3.00 – oben
+        "Sport":            (70, 30),     # Std=1.47 Mw=2.83 – rechts unten
+        "Musik":            (60, -30),    # Std=1.55 Mw=3.00 – rechts oben
     }
     for i, row in df_cons_sorted.iterrows():
         cat = row["Kategorie"]
@@ -750,10 +752,10 @@ with col3:
         **PLOTLY_LAYOUT,
         title=dict(text="Stärke vs. Konsistenz", font=dict(size=16)),
         xaxis=dict(title="Streuung σ (links = konstanter)", gridcolor="rgba(0,0,0,0.05)",
-                   range=[0.2, 1.9]),
+                   range=[0.1, 2.0]),
         yaxis=dict(title="Ø Punkte", gridcolor="rgba(0,0,0,0.05)",
-                   range=[1.9, 3.9]),
-        height=450,
+                   range=[1.8, 4.0]),
+        height=500,
     )
     st.plotly_chart(fig_cons, use_container_width=False, config=PLOTLY_CONFIG)
     st.markdown(
