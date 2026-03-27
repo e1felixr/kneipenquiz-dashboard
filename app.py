@@ -112,14 +112,6 @@ st.markdown("""
         padding: 0.5rem;
     }
 
-    /* Center numeric cells in Streamlit dataframes (glide-data-grid) */
-    [data-testid="stDataFrame"] [role="gridcell"] {
-        text-align: center !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-    }
-
     /* Divider */
     .divider {
         height: 1px;
