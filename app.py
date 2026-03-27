@@ -325,9 +325,10 @@ kpi_data = [
     ("Gesamtpunkte", str(total_points), f"Ø {total_points/6:.0f} pro Abend", ""),
     ("Ø Richtig", f"{avg_pct:.0%}", f"von max. 60 Fragen", ""),
     ("Beste Platzierung", f"{best_placement}.", f"{best_placement_q['Monat']} ({best_placement_q['Von']} Teams)", ""),
-    ("Ø Platzierung", f"{avg_placement:.1f}", f"über alle {len(placements)} Abende", ""),
+    ("Ø Platzierung", f"{avg_placement:.1f}",
+     f"bei Ø {np.mean([q['Von'] for q in quiz_nights if q['Von']]):.1f} Teams", ""),
     ("Trend", f"{trend_arrow} {abs(trend_delta):.0%}",
-     f"{quiz_nights[0]['Monat']} → {quiz_nights[-1]['Monat']}", trend_class),
+     f"Richtig-Quote {quiz_nights[0]['Monat']} vs. {quiz_nights[-1]['Monat']}", trend_class),
 ]
 
 for col, (label, value, sub, cls) in zip(cols, kpi_data):
@@ -612,6 +613,83 @@ fig_dev.update_layout(
 )
 st.plotly_chart(fig_dev, use_container_width=True, config=PLOTLY_CONFIG)
 
+# --- Second chart: each column sorted ascending by score ---
+fig_dev2 = go.Figure()
+
+# Build per-month data sorted by score ascending
+all_cats = df_dev["Kategorie"].tolist()
+cat_color_map = {cat: CAT_COLORS[i % len(CAT_COLORS)] for i, cat in enumerate(all_cats)}
+
+# For each month, sort categories by their score (ascending = weakest at bottom)
+sorted_month_data = {}
+for m in months:
+    cat_vals = [(cat, df_cat[df_cat["Kategorie"] == cat].iloc[0][m]) for cat in all_cats]
+    cat_vals.sort(key=lambda x: x[1], reverse=True)  # best at bottom
+    sorted_month_data[m] = cat_vals
+
+# We need to add one trace per "slot" (position in stack, 0=bottom to 10=top)
+# Each slot can have a different category per month
+n_cats = len(all_cats)
+cumulative2 = {m: 0 for m in months}
+connector_shapes2 = []
+
+for slot in range(n_cats):
+    slot_vals = []
+    slot_cats = []
+    slot_colors = []
+    for m in months:
+        cat, val = sorted_month_data[m][slot]
+        slot_vals.append(val)
+        slot_cats.append(cat)
+        slot_colors.append(cat_color_map[cat])
+
+    short_labels = [CAT_SHORT.get(c, c) if v >= 2 else "" for c, v in zip(slot_cats, slot_vals)]
+    hover_labels = [f"{m}: {c} {v}/5" for m, c, v in zip(months, slot_cats, slot_vals)]
+
+    # Track tops for connectors
+    tops2 = []
+    for j, m in enumerate(months):
+        tops2.append(cumulative2[m] + slot_vals[j])
+        cumulative2[m] += slot_vals[j]
+
+    fig_dev2.add_trace(go.Bar(
+        x=months,
+        y=slot_vals,
+        name=f"Slot {slot}",
+        text=short_labels,
+        textposition="inside",
+        insidetextanchor="middle",
+        textfont=dict(size=10, color="#ffffff"),
+        marker=dict(
+            color=slot_colors,
+            line=dict(width=0.5, color="#ffffff"),
+        ),
+        hovertext=hover_labels,
+        hovertemplate="%{hovertext}<extra></extra>",
+    ))
+
+    # Connector lines
+    for j in range(len(months) - 1):
+        connector_shapes2.append(dict(
+            type="line",
+            x0=j + bar_half, y0=tops2[j],
+            x1=j + 1 - bar_half, y1=tops2[j + 1],
+            xref="x", yref="y",
+            line=dict(color="rgba(0,0,0,0.18)", width=1),
+        ))
+
+fig_dev2.update_layout(
+    shapes=connector_shapes2,
+    **PLOTLY_LAYOUT,
+    title=dict(text="Kategorien sortiert nach Punktzahl (beste unten)", font=dict(size=16)),
+    barmode="stack",
+    yaxis=dict(title="Gesamtpunkte", gridcolor="rgba(0,0,0,0.05)"),
+    xaxis=dict(gridcolor="rgba(0,0,0,0.05)"),
+    showlegend=False,
+    height=480,
+)
+st.plotly_chart(fig_dev2, use_container_width=True, config=PLOTLY_CONFIG)
+
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
@@ -707,43 +785,40 @@ with col2:
     )
 
 with col3:
-    # Consistency – std deviation per category
+    # Consistency – scatter: mean score vs std deviation
     df_cons = df_cat[df_cat["Kategorie"] != "Sonderrunde"].copy()
     df_cons["Std"] = df_cons[months].std(axis=1)
-    df_cons = df_cons.sort_values("Std", ascending=True)
-
-    cons_colors = []
-    for s in df_cons["Std"]:
-        if s <= 0.8:
-            cons_colors.append("#2171b5")
-        elif s <= 1.1:
-            cons_colors.append("#6baed6")
-        else:
-            cons_colors.append("#d94f4f")
 
     fig_cons = go.Figure()
-    fig_cons.add_trace(go.Bar(
-        y=df_cons["Kategorie"],
+    fig_cons.add_trace(go.Scatter(
         x=df_cons["Std"],
-        orientation="h",
-        marker=dict(color=cons_colors, line=dict(width=0)),
-        text=[f"{v:.2f}" for v in df_cons["Std"]],
-        textposition="outside",
-        textfont=dict(color="#374151", size=12),
-        hovertemplate="%{y}: σ = %{x:.2f}<extra></extra>",
+        y=df_cons["Mittelwert"],
+        mode="markers+text",
+        text=df_cons["Kategorie"],
+        textposition="top center",
+        textfont=dict(size=9, color="#374151"),
+        marker=dict(
+            size=12,
+            color=df_cons["Mittelwert"],
+            colorscale=[[0, "#c6dbef"], [0.5, "#6baed6"], [1, "#2171b5"]],
+            cmin=2, cmax=4,
+            line=dict(width=1, color="#ffffff"),
+        ),
+        hovertemplate="%{text}<br>Ø %{y:.1f} Pkt. | σ %{x:.2f}<extra></extra>",
     ))
     fig_cons.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text="Konsistenz (Standardabweichung)", font=dict(size=16)),
-        xaxis=dict(range=[0, 2], gridcolor="rgba(0,0,0,0.05)",
-                   title="σ (niedriger = konstanter)"),
-        yaxis=dict(tickfont=dict(size=11)),
+        title=dict(text="Stärke vs. Konsistenz", font=dict(size=16)),
+        xaxis=dict(title="Streuung σ (links = konstanter)", gridcolor="rgba(0,0,0,0.05)",
+                   range=[0.3, 1.8]),
+        yaxis=dict(title="Ø Punkte", gridcolor="rgba(0,0,0,0.05)",
+                   range=[2, 3.8]),
         height=400,
     )
     st.plotly_chart(fig_cons, use_container_width=True, config=PLOTLY_CONFIG)
     st.markdown(
-        '<p class="info-text">Niedrige Werte = stabile Leistung über alle Abende. '
-        'Hohe Werte = starke Schwankungen zwischen den Quizabenden.</p>',
+        '<p class="info-text">Oben links = stark &amp; konstant (ideal). '
+        'Unten rechts = schwach &amp; schwankend.</p>',
         unsafe_allow_html=True,
     )
 
