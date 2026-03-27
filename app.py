@@ -112,20 +112,6 @@ st.markdown("""
         padding: 0.5rem;
     }
 
-    /* Center numeric cells in st.table */
-    [data-testid="stTable"] td {
-        text-align: center !important;
-    }
-    [data-testid="stTable"] td:first-child {
-        text-align: left !important;
-    }
-    [data-testid="stTable"] th {
-        text-align: center !important;
-    }
-    [data-testid="stTable"] th:first-child {
-        text-align: left !important;
-    }
-
     /* Divider */
     .divider {
         height: 1px;
@@ -329,17 +315,42 @@ for q in quiz_nights:
     detail_rows_data.append(row)
 
 df_detail = pd.DataFrame(detail_rows_data)
-df_detail["% richtig"] = df_detail["% richtig"].apply(lambda x: f"{x}%")
-df_detail["Platz"] = df_detail["Platz"].apply(lambda x: f"{x}." if pd.notna(x) else "–")
-df_detail = df_detail.set_index("Monat")
-st.table(df_detail)
+st.dataframe(
+    df_detail,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Teil 1": st.column_config.NumberColumn("Teil 1", format="%d"),
+        "Teil 2": st.column_config.NumberColumn("Teil 2", format="%d"),
+        "Teil 3": st.column_config.NumberColumn("Teil 3", format="%d"),
+        "Teil 4": st.column_config.NumberColumn("Teil 4", format="%d"),
+        "Bonus": st.column_config.NumberColumn("Bonus", format="%d"),
+        "Gesamt": st.column_config.ProgressColumn(
+            "Gesamt", min_value=0, max_value=50, format="%d Pkt.",
+        ),
+        "% richtig": st.column_config.NumberColumn("% richtig", format="%.0f %%"),
+        "Platz": st.column_config.NumberColumn("Platz", format="%d."),
+        "von": st.column_config.NumberColumn("von", format="%d"),
+    },
+)
 
 st.markdown("**Punkte pro Kategorie und Monat:**")
 df_show = df_cat[["Kategorie", "Platz", "Mittelwert"] + months].copy()
-df_show["Mittelwert"] = df_show["Mittelwert"].round(1)
+df_show["Mittelwert"] = df_show["Mittelwert"].round(2)
 df_show = df_show.sort_values("Platz")
-df_show = df_show.set_index("Kategorie")
-st.table(df_show)
+
+st.dataframe(
+    df_show,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Platz": st.column_config.NumberColumn("Platz", format="%d"),
+        "Mittelwert": st.column_config.ProgressColumn(
+            "Ø", min_value=0, max_value=5, format="%.1f",
+        ),
+        **{m: st.column_config.NumberColumn(m, format="%d") for m in months},
+    },
+)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
