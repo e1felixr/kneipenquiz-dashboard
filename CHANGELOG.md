@@ -2,7 +2,7 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
-## v0.3.0 (22.05.2026, 10:18 Uhr)
+## v0.3.0 (28.05.2026, 13:18 Uhr)
 
 ### Neu
 
@@ -14,7 +14,7 @@ Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
 - **Refresh-Verdrahtung erweitert** — der bestehende Tab-Switch-Mechanismus ruft `_refresh_insights` analog zu `_refresh_dashboard` auf; auch nach Speichern und Löschen wird der Erkenntnisse-Reiter aktualisiert.
 
-## v0.2.0 (22.05.2026, 09:38 Uhr)
+## v0.2.0 (28.05.2026, 13:18 Uhr)
 
 ### Neu
 
@@ -28,7 +28,7 @@ Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 - **Launcher entfällt** — `start.py` schrumpft zu einer Bootstrap-Datei; den separaten Auswahldialog mit zwei Knöpfen braucht es nicht mehr.
 - **EXE größer, dafür eigenständig** — `build.bat` schließt `matplotlib` und `numpy` ins Bundle ein (`--collect-data matplotlib`); die `Quiz.exe` wird dadurch deutlich umfangreicher, läuft aber ohne System-Python und ohne Streamlit. Die `app.py` (Streamlit-Version) bleibt im Repo für den manuellen Aufruf erhalten.
 
-## v0.1.0 (22.05.2026, 08:08 Uhr)
+## v0.1.0 (28.05.2026, 13:18 Uhr)
 
 ### Neu
 
