@@ -1,0 +1,21 @@
+# PyInstaller-Build-Output
+*.exe
+_internal/
+build/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

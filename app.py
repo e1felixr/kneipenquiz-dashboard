@@ -187,11 +187,12 @@ def load_data():
     with open(DATA_PATH, encoding="utf-8") as f:
         data = json.load(f)
     df_cat = pd.DataFrame(data["categories"])
-    months = ["Apr 25", "Mai 25", "Jul 25", "Sep 25", "Jan 26", "Mrz 26"]
+    months = data["months"]
     quiz_nights = data["quiz_nights"]
     return df_cat, months, quiz_nights
 
 df_cat, months, quiz_nights = load_data()
+n_nights = len(quiz_nights)
 
 # ---------------------------------------------------------------------------
 # Plotly theme defaults
@@ -217,10 +218,12 @@ CAT_COLORS = [
 # ---------------------------------------------------------------------------
 # HEADER
 # ---------------------------------------------------------------------------
-st.markdown("""
+_first_month = months[0] if months else ""
+_last_month = months[-1] if months else ""
+st.markdown(f"""
 <div class="dashboard-header">
     <h1>🍺 Kneipenquiz Schwabach</h1>
-    <p>Performance-Dashboard &mdash; 6 Quizabende &mdash; Apr 2025 bis Mrz 2026</p>
+    <p>Performance-Dashboard &mdash; {n_nights} Quizabende &mdash; {_first_month} bis {_last_month}</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -246,8 +249,8 @@ trend_class = "" if trend_delta > 0 else "bad"
 
 cols = st.columns(6)
 kpi_data = [
-    ("Quizabende", "6", "seit Apr 2025", ""),
-    ("Gesamtpunkte", str(total_points), f"Ø {total_points/6:.0f} pro Abend", ""),
+    ("Quizabende", str(n_nights), f"seit {_first_month}", ""),
+    ("Gesamtpunkte", str(total_points), f"Ø {total_points/n_nights:.0f} pro Abend", ""),
     ("Ø Richtig", f"{avg_pct:.0%}", f"von max. 60 Fragen", ""),
     ("Beste Platzierung", f"{best_placement}.", f"{best_placement_q['Monat']} ({best_placement_q['Von']} Teams)", ""),
     ("Ø Platzierung", f"{avg_placement:.1f}",
@@ -288,8 +291,10 @@ for cat, ms in perfect_by_cat.items():
 perfect_count = sum(len(ms) for ms in perfect_by_cat.values())
 
 improvements = {}
+_first2 = months[:2]
+_last2 = months[-2:]
 for _, row in df_no_sonder.iterrows():
-    delta = np.mean([row["Jan 26"], row["Mrz 26"]]) - np.mean([row["Apr 25"], row["Mai 25"]])
+    delta = np.mean([row[m] for m in _last2]) - np.mean([row[m] for m in _first2])
     improvements[row["Kategorie"]] = delta
 most_improved = max(improvements, key=improvements.get)
 
@@ -343,7 +348,7 @@ def centered(col_cfg):
 
 st.dataframe(
     df_detail,
-    use_container_width=False,
+    width='content',
     hide_index=True,
     column_config={
         "Teil 1": centered(st.column_config.NumberColumn("Teil 1", format="%d")),
@@ -367,7 +372,7 @@ df_show = df_show.sort_values("Platz")
 
 st.dataframe(
     df_show,
-    use_container_width=False,
+    width='content',
     hide_index=True,
     column_config={
         "Platz": centered(st.column_config.NumberColumn("Platz", format="%d")),
@@ -456,7 +461,7 @@ with st.container():
         height=420,
         bargap=0.4,
     )
-    st.plotly_chart(fig_trend, use_container_width=False, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_trend, width='content', config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -499,7 +504,7 @@ with col1:
         yaxis=dict(tickfont=dict(size=12)),
         height=420,
     )
-    st.plotly_chart(fig_rank, use_container_width=False, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_rank, width='content', config=PLOTLY_CONFIG)
 
 with col2:
     # Heatmap – Categories x Months
@@ -528,7 +533,7 @@ with col2:
         yaxis=dict(tickfont=dict(size=11)),
         height=420,
     )
-    st.plotly_chart(fig_heat, use_container_width=False, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_heat, width='content', config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -612,7 +617,7 @@ fig_dev2.update_layout(
     showlegend=False,
     height=480,
 )
-st.plotly_chart(fig_dev2, use_container_width=False, config=PLOTLY_CONFIG)
+st.plotly_chart(fig_dev2, width='content', config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -647,7 +652,7 @@ with col1:
         xaxis=dict(tickfont=dict(size=9), tickangle=0),
         height=420,
     )
-    st.plotly_chart(fig_sonder, use_container_width=False, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_sonder, width='content', config=PLOTLY_CONFIG)
 
 with col2:
     # Joker analysis – doubles score only if >= 3 correct
@@ -684,7 +689,7 @@ with col2:
         height=400,
         bargap=0.3,
     )
-    st.plotly_chart(fig_joker, use_container_width=False, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_joker, width='content', config=PLOTLY_CONFIG)
     st.markdown(
         '<p class="info-text">Joker verdoppelt die Kategorie-Punkte, '
         'aber nur ab min. 3 Richtigen. Unter 3 verfällt der Joker.</p>',
@@ -757,7 +762,7 @@ with col3:
                    range=[1.8, 4.0]),
         height=500,
     )
-    st.plotly_chart(fig_cons, use_container_width=False, config=PLOTLY_CONFIG)
+    st.plotly_chart(fig_cons, width='content', config=PLOTLY_CONFIG)
     st.markdown(
         '<p class="info-text">Oben links = stark &amp; konstant (ideal). '
         'Unten rechts = schwach &amp; schwankend.<br>'
@@ -775,6 +780,6 @@ st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 # ---------------------------------------------------------------------------
 st.markdown("""
 <div style="text-align:center; color:#9ca3af; padding:2rem 0 1rem 0; font-size:0.8rem;">
-    Kneipenquiz Schwabach Dashboard &mdash; Datenquelle: Kneipenquiz.xlsx &mdash; Built with Streamlit & Plotly
+    Kneipenquiz Schwabach Dashboard &mdash; Datenquelle: data.json &mdash; Built with Streamlit & Plotly
 </div>
 """, unsafe_allow_html=True)
