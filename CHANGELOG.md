@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
+## v0.8.3 (22.10.2026, 14:36 Uhr)
+
+### Verbessert
+
+- **Sonderrunden-Diagramm wieder lesbar** — zehn Themennamen standen waagerecht nebeneinander unter zehn Balken und überschrieben einander bis zur Unkenntlichkeit; „Albrecht Dürer", „Sixtinische Kapelle" und „Spongebob" verschmolzen zu einem Strich, und welcher Balken zu welchem Abend gehörte, war nicht mehr auszumachen. Die Balken liegen jetzt waagerecht, Thema und Monat stehen auf der senkrechten Achse — dort können sie sich nicht überlagern. Die Zeitreihe liest sich von oben nach unten, der älteste Abend zuerst.
+
+### Intern
+
+- **Versions-Konstante nachgezogen** — stand noch auf `0.8.1` und folgt wieder dem Changelog.
+- **Abschlussmeldungen des Bauskripts berichtigt** — `build_exe.bat` behauptete noch, `data.json` müsse neben der EXE liegen. Das galt bis v0.4.5; seit v0.8.1 liegt sie im Projektordner, den die EXE über die OneDrive-Wurzel auflöst. Die Meldung nennt nun den richtigen Ort samt Grund.
+
 ## v0.8.2 (22.10.2026, 14:27 Uhr)
 
 ### Verbessert

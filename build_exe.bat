@@ -313,8 +313,9 @@ REM =====================================================
 REM  [6/6] Hinweise
 REM =====================================================
 call "%BLIB%" :bl_step 6 6 "Hinweise..."
-call "%BLIB%" :bl_log INFO "Onefile: kein _internal\ mehr noetig - nur noch Quiz.exe + data.json."
-call "%BLIB%" :bl_log INFO "data.json muss neben der EXE liegen - sie wird zur Laufzeit gelesen und geschrieben."
+call "%BLIB%" :bl_log INFO "Onefile: kein _internal\ mehr noetig - die EXE steht allein."
+call "%BLIB%" :bl_log INFO "data.json liegt im PROJEKTORDNER (seit v0.8.1), nicht neben der EXE - die EXE findet ihn ueber die OneDrive-Wurzel."
+call "%BLIB%" :bl_log INFO "Grund: data.json ist die Datenquelle des veroeffentlichten Streamlit-Dashboards und mitversioniert. Ein neuer Abend erreicht die Web-Ansicht nur ueber Commit und Push."
 call "%BLIB%" :bl_log INFO "Dashboard ist ein eingebetteter matplotlib-Reiter in der EXE selbst - kein Extra-Prozess."
 call "%BLIB%" :bl_log INFO "app.py (Streamlit-Variante) bleibt unangetastet im Quellordner - manueller 'streamlit run app.py'-Aufruf mit System-Python."
 

@@ -646,29 +646,40 @@ st.markdown('<div class="section-title">Spezialauswertungen</div>', unsafe_allow
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    # Sonderrunde analysis
+    # Sonderrunden: waagerechte Balken, Thema und Monat auf der y-Achse.
+    # Senkrecht standen zehn Themennamen nebeneinander unter den Balken und
+    # ueberschrieben einander bis zur Unlesbarkeit -- "Albrecht Duerer" und
+    # "Sixtinische Kapelle" brauchen Platz, den eine Drittel-Spalte nicht hat.
+    # Auf einer Achse stehen die Namen gesetzt, und die Zeitreihe liest sich
+    # von oben nach unten.
     sonder_themen = [q["Sonderrunde_Thema"] for q in quiz_nights]
     sonder_scores = [q["cat_scores"].get("Sonderrunde", 0) for q in quiz_nights]
     sonder_labels = [f"{t}<br>({q['Monat']})" for t, q in zip(sonder_themen, quiz_nights)]
 
     sonder_colors = ["#2171b5" if s >= 4 else "#6baed6" if s >= 2 else "#c6dbef" for s in sonder_scores]
 
+    # Plotly zeichnet das erste Element unten: umkehren stellt den
+    # aeltesten Abend nach oben.
     fig_sonder = go.Figure()
     fig_sonder.add_trace(go.Bar(
-        x=sonder_labels,
-        y=sonder_scores,
-        marker=dict(color=sonder_colors, line=dict(width=0)),
-        text=sonder_scores,
+        y=sonder_labels[::-1],
+        x=sonder_scores[::-1],
+        orientation="h",
+        marker=dict(color=sonder_colors[::-1], line=dict(width=0)),
+        text=sonder_scores[::-1],
         textposition="outside",
-        textfont=dict(color="#374151", size=14),
-        hovertemplate="%{x}: %{y}/5 Punkte<extra>Sonderrunde</extra>",
+        textfont=dict(color="#374151", size=13),
+        cliponaxis=False,
+        hovertemplate="%{y}: %{x}/5 Punkte<extra>Sonderrunde</extra>",
     ))
     fig_sonder.update_layout(
         **PLOTLY_LAYOUT,
         title=dict(text="Sonderrunden-Ergebnisse", font=dict(size=16)),
-        yaxis=dict(range=[0, 6], gridcolor="rgba(0,0,0,0.05)", title="Punkte"),
-        xaxis=dict(tickfont=dict(size=9), tickangle=0),
-        height=420,
+        xaxis=dict(range=[0, 5.5], tickvals=[0, 1, 2, 3, 4, 5],
+                   gridcolor="rgba(0,0,0,0.05)", title="Punkte (max. 5)"),
+        yaxis=dict(tickfont=dict(size=10), automargin=True),
+        height=500,
+        bargap=0.25,
     )
     st.plotly_chart(fig_sonder, width='content', config=PLOTLY_CONFIG)
 
