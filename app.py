@@ -180,18 +180,26 @@ st.markdown("""
 # Load pre-computed data from JSON (fast, no openpyxl needed)
 # ---------------------------------------------------------------------------
 import pathlib
+
+# Eine Datenquelle für beide Welten: die mitversionierte data.json im
+# Projektordner. Lokal schreibt die Eingabe-GUI direkt hierher, im Deployment
+# (Streamlit Cloud) liegt dieselbe Datei im Repo-Abbild.
 DATA_PATH = pathlib.Path(__file__).parent / "data.json"
 
+
+# Die mtime gehört in den Cache-Schlüssel: sonst zeigt die lokal laufende App
+# nach einem neu erfassten Abend weiter den Stand des ersten Aufrufs.
 @st.cache_data
-def load_data():
-    with open(DATA_PATH, encoding="utf-8") as f:
+def load_data(path: str, mtime: float):
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     df_cat = pd.DataFrame(data["categories"])
     months = data["months"]
     quiz_nights = data["quiz_nights"]
     return df_cat, months, quiz_nights
 
-df_cat, months, quiz_nights = load_data()
+
+df_cat, months, quiz_nights = load_data(str(DATA_PATH), DATA_PATH.stat().st_mtime)
 n_nights = len(quiz_nights)
 
 # ---------------------------------------------------------------------------
@@ -215,6 +223,13 @@ CAT_COLORS = [
     "#a0cbe8",
 ]
 
+
+def _de(x, dez=1, trim=False):
+    """Zahl in deutscher Schreibweise; trim=True laesst die Null nach dem Komma weg."""
+    if trim and abs(x - round(x)) < 1e-9:
+        return f"{round(x):d}"
+    return f"{x:.{dez}f}".replace(".", ",")
+
 # ---------------------------------------------------------------------------
 # HEADER
 # ---------------------------------------------------------------------------
@@ -230,7 +245,9 @@ st.markdown(f"""
 # ---------------------------------------------------------------------------
 # KPI CARDS
 # ---------------------------------------------------------------------------
-total_points = sum(q["Gesamt"] for q in quiz_nights)
+night_points = [q["Gesamt"] for q in quiz_nights]
+avg_points = np.mean(night_points)
+med_points = np.median(night_points)
 avg_pct = np.mean([q["Pct_richtig"] for q in quiz_nights])
 placements = [q["Platzierung"] for q in quiz_nights if q["Platzierung"] is not None]
 best_placement = min(placements) if placements else "–"
@@ -250,11 +267,12 @@ trend_class = "" if trend_delta > 0 else "bad"
 cols = st.columns(6)
 kpi_data = [
     ("Quizabende", str(n_nights), f"seit {_first_month}", ""),
-    ("Gesamtpunkte", str(total_points), f"Ø {total_points/n_nights:.0f} pro Abend", ""),
+    ("Punkte pro Abend", _de(avg_points),
+     f"Median {_de(med_points, trim=True)} · Spanne {min(night_points)}–{max(night_points)}", ""),
     ("Ø Richtig", f"{avg_pct:.0%}", f"von max. 60 Fragen", ""),
     ("Beste Platzierung", f"{best_placement}.", f"{best_placement_q['Monat']} ({best_placement_q['Von']} Teams)", ""),
-    ("Ø Platzierung", f"{avg_placement:.1f}",
-     f"bei Ø {np.mean([q['Von'] for q in quiz_nights if q['Von']]):.1f} Teams", ""),
+    ("Ø Platzierung", _de(avg_placement),
+     f"bei Ø {_de(np.mean([q['Von'] for q in quiz_nights if q['Von']]))} Teams", ""),
     ("Trend Richtig-Quote", f"{trend_arrow} {abs(trend_delta):.0%}",
      f"vs. {quiz_nights[-2]['Monat']}", trend_class),
 ]
@@ -300,10 +318,10 @@ most_improved = max(improvements, key=improvements.get)
 
 cols2 = st.columns([1, 1, 1, 2])
 kpi_data2 = [
-    ("Stärkste Kategorie", best_cat["Kategorie"], f"Ø {best_cat['Mittelwert']:.1f}/5", ""),
-    ("Schwächste Kategorie", worst_cat["Kategorie"], f"Ø {worst_cat['Mittelwert']:.1f}/5", "bad"),
+    ("Stärkste Kategorie", best_cat["Kategorie"], f"Ø {_de(best_cat['Mittelwert'])}/5", ""),
+    ("Schwächste Kategorie", worst_cat["Kategorie"], f"Ø {_de(worst_cat['Mittelwert'])}/5", "bad"),
     ("Meiste Verbesserung", most_improved,
-     f"+{improvements[most_improved]:.1f} Pkt. (Ø erste 2 vs. letzte 2 Abende)", ""),
+     f"+{_de(improvements[most_improved])} Pkt. (Ø erste 2 vs. letzte 2 Abende)", ""),
     ("Perfekte Runden (5/5)", f"{perfect_count}x" if perfect_count else "–",
      ", ".join(perfect_labels) if perfect_labels else "–", ""),
 ]
@@ -324,8 +342,8 @@ detail_rows_data = []
 for q in quiz_nights:
     row = {
         "Monat": q["Monat"],
-        "Joker 1": q["Joker1"],
-        "Joker 2": q["Joker2"],
+        "Joker 1": q["Joker1"] or "–",
+        "Joker 2": q["Joker2"] or "–",
         "Sonderrunde": q["Sonderrunde_Thema"],
         "Teil 1": q["Teil1"],
         "Teil 2": q["Teil2"],
@@ -657,8 +675,9 @@ with col1:
 with col2:
     # Joker analysis – doubles score only if >= 3 correct
     joker_months = [q["Monat"] for q in quiz_nights]
-    joker1_scores = [q["cat_scores"].get(q["Joker1"], 0) for q in quiz_nights]
-    joker2_scores = [q["cat_scores"].get(q["Joker2"], 0) for q in quiz_nights]
+    # Joker kann None sein (Abend ohne Joker) -> 0 Punkte, kein Bonus.
+    joker1_scores = [q["cat_scores"].get(q["Joker1"] or "", 0) for q in quiz_nights]
+    joker2_scores = [q["cat_scores"].get(q["Joker2"] or "", 0) for q in quiz_nights]
     # Bonus only triggers at >= 3
     joker_bonus = [
         (j1 if j1 >= 3 else 0) + (j2 if j2 >= 3 else 0)

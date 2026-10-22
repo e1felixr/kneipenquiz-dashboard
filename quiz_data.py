@@ -7,16 +7,69 @@ Aggregat-Bloecke (months, categories). Die GUI ruft hier rein.
 import json
 import os
 import pathlib
+import shutil
 import sys
 import tempfile
 from datetime import datetime
 
-# Im EXE-Modus liegt data.json neben der EXE; im Source-Modus neben dem Modul.
-if getattr(sys, "frozen", False):
-    HERE = pathlib.Path(sys.executable).parent
-else:
-    HERE = pathlib.Path(__file__).parent
-DATA_PATH = HERE / "data.json"
+
+# Nutzerdaten liegen im PROJEKTORDNER, nicht unter %LOCALAPPDATA%. Grund:
+# data.json ist hier kein blosses Laufzeit-Artefakt, sondern die Datenquelle
+# des Streamlit-Dashboards -- sie ist mitversioniert und geht per Push ins
+# Deployment (GitHub kneipenquiz-dashboard). Genau diese Kette durchtrennte
+# v0.5.0, als die Datei nach %LOCALAPPDATA% wanderte: die Eingabe-GUI schrieb
+# seither an einen Ort, den das Web-Dashboard nie sieht. Die Hausregel
+# "Laufzeitdaten nach %LOCALAPPDATA%" schuetzt die geteilte SharePoint-
+# Bibliothek vor Begleitdateien; dieses Werkzeug nutzt allein Felix, und sein
+# Datenfile IST das Deployment-Artefakt. %LOCALAPPDATA% bleibt Rueckfall,
+# falls der Projektordner einmal nicht erreichbar ist.
+def _project_dir():
+    """Projektordner -- beim Skript-Lauf neben dem Modul, bei der EXE ueber OneDrive."""
+    if not (getattr(sys, "frozen", False) or "__compiled__" in globals()):
+        return pathlib.Path(__file__).parent
+    # Onefile-EXE: __file__ zeigt ins Temp-Verzeichnis, der Projektordner muss
+    # daher aus der OneDrive-Wurzel konstruiert werden.
+    for _var in ("OneDriveCommercial", "OneDrive"):
+        _root = os.environ.get(_var)
+        if _root:
+            _kand = pathlib.Path(_root) / "2 Buero" / "6 GPT_Python" / "260327_Quiz"
+            if _kand.is_dir():
+                return _kand
+    return None
+
+
+def _user_data_dir() -> pathlib.Path:
+    """Rueckfall: %LOCALAPPDATA%\\E1\\Quiz\\, wenn der Projektordner fehlt."""
+    root = os.environ.get("LOCALAPPDATA")
+    basis = pathlib.Path(root) if root else pathlib.Path.home() / "AppData" / "Local"
+    ziel = basis / "E1" / "Quiz"
+    ziel.mkdir(parents=True, exist_ok=True)
+    return ziel
+
+
+_PROJEKT_DIR = _project_dir()
+DATA_PATH = ((_PROJEKT_DIR / "data.json") if _PROJEKT_DIR is not None
+             else (_user_data_dir() / "data.json"))
+
+# Einmalige Migration von den frueheren Speicherorten, jung zuerst:
+# %LOCALAPPDATA% (v0.6.1 bis v0.8.0), dann %APPDATA%\Roaming (v0.5.0 bis
+# v0.6.0), zuletzt neben der EXE (bis v0.4.5). Original bleibt jeweils
+# unangetastet stehen, es wird nur kopiert.
+if not DATA_PATH.exists():
+    _alt_kandidaten = []
+    for _var in ("LOCALAPPDATA", "APPDATA"):
+        _root = os.environ.get(_var)
+        if _root:
+            _alt_kandidaten.append(pathlib.Path(_root) / "E1" / "Quiz" / "data.json")
+    if getattr(sys, "frozen", False) or "__compiled__" in globals():
+        _alt_kandidaten.append(pathlib.Path(sys.executable).parent / "data.json")
+    for _alt in _alt_kandidaten:
+        if _alt.exists() and _alt != DATA_PATH:
+            try:
+                shutil.copy2(_alt, DATA_PATH)
+            except OSError:
+                continue
+            break
 
 GERMAN_MONTHS = ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun",
                  "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
@@ -29,6 +82,10 @@ CATEGORIES = [
     "Geschichte", "Kunst/Literatur", "Musik", "Rel./Mythol.",
     "Sonderrunde", "Sport", "Verschiedenes", "Wissensch./Natur",
 ]
+
+# Explizite Auswahl "kein Joker gesetzt". Steht in den Joker-Comboboxen an
+# erster Stelle; in data.json wird daraus None (siehe normalize_joker).
+JOKER_KEINER = "(keiner)"
 
 # Schlagwortlisten fuer die grobe Klassifikation der Sonderrunden-Themen.
 # Bewusst schlicht; trifft die typischen Felle der bisherigen Themen.
@@ -61,6 +118,21 @@ def iso_to_monat_long(iso_str):
     return format_monat_long(dt.year, dt.month)
 
 
+def normalize_joker(value):
+    """Fuehrt leere Eingabe und '(keiner)' auf None zurueck.
+
+    None ist die Speicherform fuer 'kein Joker gesetzt' -- damit bleiben
+    Auswertungen (Joker-Bilanz, Bonus, Dashboard) unveraendert gueltig,
+    die ohnehin nur gesetzte Joker beruecksichtigen.
+    """
+    if not value:
+        return None
+    value = str(value).strip()
+    if not value or value == JOKER_KEINER:
+        return None
+    return value
+
+
 def compute_bonus(joker1, joker2, cat_scores):
     """Bonus = Verdopplung der Joker-Kategorie, sofern >=3 Punkte; sonst 0.
 
@@ -89,12 +161,6 @@ def parse_monat_to_iso(monat_str):
         raise ValueError(f"Ungueltiges Jahr in Monat-String: {yr_str!r}")
     year = 2000 + year_short if year_short < 100 else year_short
     return f"{year:04d}-{month:02d}-01"
-
-
-def iso_to_monat(iso_str):
-    """Wandelt ein ISO-Datum '2026-04-01' in den Anzeige-String 'Apr 26' um."""
-    dt = datetime.strptime(iso_str[:10], "%Y-%m-%d")
-    return format_monat(dt.year, dt.month)
 
 
 def load_data():
@@ -198,15 +264,17 @@ def quiznight_from_form(form):
             cat_scores[kat] = cat_scores.get(kat, 0) + slot["punkte"]
 
     # Bonus wird nicht eingegeben, sondern aus den Jokern berechnet.
-    bonus = compute_bonus(form.get("joker1"), form.get("joker2"), cat_scores)
+    joker1 = normalize_joker(form.get("joker1"))
+    joker2 = normalize_joker(form.get("joker2"))
+    bonus = compute_bonus(joker1, joker2, cat_scores)
     gesamt = sum(teil_sums) + bonus
     pct_richtig = sum(teil_sums) / 60.0
 
     entry = {
         "Datum": datum,
         "Monat": monat,
-        "Joker1": form["joker1"],
-        "Joker2": form["joker2"],
+        "Joker1": joker1,
+        "Joker2": joker2,
         "Sonderrunde_Thema": form["sonderrunde_thema"],
         "Teil1": teil_sums[0],
         "Teil2": teil_sums[1],
@@ -408,12 +476,19 @@ def validate_form(form, *, existing_quiz_nights, edit_datum=None):
             f"(gefunden: {len(set(all_kategorien))} eindeutige)."
         )
 
+    # '(keiner)' ist eine gueltige Wahl -- ein Abend ohne Joker ist erlaubt.
+    # Ein LEER gelassenes Feld bleibt dagegen ein Fehler, damit ein vergessener
+    # Joker nicht stillschweigend als 'keiner' in die Daten wandert.
     joker1 = form.get("joker1")
     joker2 = form.get("joker2")
-    if joker1 not in CATEGORIES:
-        errors.append(f"Joker 1 '{joker1}' ist keine gueltige Kategorie.")
-    if joker2 not in CATEGORIES:
-        errors.append(f"Joker 2 '{joker2}' ist keine gueltige Kategorie.")
+    if joker1 not in CATEGORIES and joker1 != JOKER_KEINER:
+        errors.append(
+            f"Joker 1 '{joker1}' ist keine gueltige Kategorie "
+            f"(fuer 'kein Joker' bitte '{JOKER_KEINER}' waehlen).")
+    if joker2 not in CATEGORIES and joker2 != JOKER_KEINER:
+        errors.append(
+            f"Joker 2 '{joker2}' ist keine gueltige Kategorie "
+            f"(fuer 'kein Joker' bitte '{JOKER_KEINER}' waehlen).")
     if joker1 in CATEGORIES and joker2 in CATEGORIES and joker1 == joker2:
         errors.append("Joker 1 und Joker 2 muessen unterschiedliche Kategorien sein.")
     played = set(all_kategorien)

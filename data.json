@@ -7,13 +7,15 @@
     "Jan 26",
     "Mrz 26",
     "Apr 26",
-    "Mai 26"
+    "Mai 26",
+    "Jul 26",
+    "Sep 26"
   ],
   "categories": [
     {
       "Kategorie": "Aktuelles",
-      "Punkte_gesamt": 27,
-      "Mittelwert": 3.375,
+      "Punkte_gesamt": 33,
+      "Mittelwert": 3.3,
       "Apr 25": 2,
       "Mai 25": 4,
       "Jul 25": 4,
@@ -22,12 +24,14 @@
       "Mrz 26": 2,
       "Apr 26": 4,
       "Mai 26": 3,
+      "Jul 26": 4,
+      "Sep 26": 2,
       "Platz": 1
     },
     {
       "Kategorie": "Essen/Trinken",
-      "Punkte_gesamt": 22,
-      "Mittelwert": 2.75,
+      "Punkte_gesamt": 26,
+      "Mittelwert": 2.6,
       "Apr 25": 2,
       "Mai 25": 3,
       "Jul 25": 4,
@@ -36,12 +40,14 @@
       "Mrz 26": 2,
       "Apr 26": 2,
       "Mai 26": 5,
-      "Platz": 4
+      "Jul 26": 3,
+      "Sep 26": 1,
+      "Platz": 7
     },
     {
       "Kategorie": "Film/Fernsehen",
-      "Punkte_gesamt": 24,
-      "Mittelwert": 3.0,
+      "Punkte_gesamt": 27,
+      "Mittelwert": 2.7,
       "Apr 25": 4,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -50,12 +56,14 @@
       "Mrz 26": 3,
       "Apr 26": 2,
       "Mai 26": 4,
-      "Platz": 3
+      "Jul 26": 1,
+      "Sep 26": 2,
+      "Platz": 6
     },
     {
       "Kategorie": "Geographie",
-      "Punkte_gesamt": 22,
-      "Mittelwert": 2.75,
+      "Punkte_gesamt": 27,
+      "Mittelwert": 2.7,
       "Apr 25": 2,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -64,12 +72,14 @@
       "Mrz 26": 4,
       "Apr 26": 4,
       "Mai 26": 2,
-      "Platz": 4
+      "Jul 26": 2,
+      "Sep 26": 3,
+      "Platz": 6
     },
     {
       "Kategorie": "Geschichte",
-      "Punkte_gesamt": 25,
-      "Mittelwert": 3.125,
+      "Punkte_gesamt": 32,
+      "Mittelwert": 3.2,
       "Apr 25": 4,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -78,12 +88,14 @@
       "Mrz 26": 4,
       "Apr 26": 1,
       "Mai 26": 4,
+      "Jul 26": 3,
+      "Sep 26": 4,
       "Platz": 2
     },
     {
       "Kategorie": "Kunst/Literatur",
-      "Punkte_gesamt": 21,
-      "Mittelwert": 2.625,
+      "Punkte_gesamt": 26,
+      "Mittelwert": 2.6,
       "Apr 25": 2,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -92,12 +104,14 @@
       "Mrz 26": 2,
       "Apr 26": 4,
       "Mai 26": 3,
-      "Platz": 5
+      "Jul 26": 2,
+      "Sep 26": 3,
+      "Platz": 7
     },
     {
       "Kategorie": "Musik",
-      "Punkte_gesamt": 27,
-      "Mittelwert": 3.375,
+      "Punkte_gesamt": 31,
+      "Mittelwert": 3.1,
       "Apr 25": 2,
       "Mai 25": 4,
       "Jul 25": 1,
@@ -106,12 +120,14 @@
       "Mrz 26": 2,
       "Apr 26": 4,
       "Mai 26": 5,
-      "Platz": 1
+      "Jul 26": 1,
+      "Sep 26": 3,
+      "Platz": 3
     },
     {
       "Kategorie": "Rel./Mythol.",
-      "Punkte_gesamt": 22,
-      "Mittelwert": 2.75,
+      "Punkte_gesamt": 28,
+      "Mittelwert": 2.8,
       "Apr 25": 4,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -120,11 +136,13 @@
       "Mrz 26": 3,
       "Apr 26": 4,
       "Mai 26": 2,
-      "Platz": 4
+      "Jul 26": 2,
+      "Sep 26": 4,
+      "Platz": 5
     },
     {
       "Kategorie": "Sonderrunde",
-      "Punkte_gesamt": 20,
+      "Punkte_gesamt": 25,
       "Mittelwert": 2.5,
       "Apr 25": 0,
       "Mai 25": 5,
@@ -134,11 +152,13 @@
       "Mrz 26": 5,
       "Apr 26": 4,
       "Mai 26": 4,
-      "Platz": 6
+      "Jul 26": 2,
+      "Sep 26": 3,
+      "Platz": 8
     },
     {
       "Kategorie": "Sport",
-      "Punkte_gesamt": 24,
+      "Punkte_gesamt": 30,
       "Mittelwert": 3.0,
       "Apr 25": 1,
       "Mai 25": 3,
@@ -148,11 +168,13 @@
       "Mrz 26": 5,
       "Apr 26": 4,
       "Mai 26": 3,
-      "Platz": 3
+      "Jul 26": 2,
+      "Sep 26": 4,
+      "Platz": 4
     },
     {
       "Kategorie": "Verschiedenes",
-      "Punkte_gesamt": 24,
+      "Punkte_gesamt": 30,
       "Mittelwert": 3.0,
       "Apr 25": 2,
       "Mai 25": 2,
@@ -162,12 +184,14 @@
       "Mrz 26": 3,
       "Apr 26": 1,
       "Mai 26": 5,
-      "Platz": 3
+      "Jul 26": 2,
+      "Sep 26": 4,
+      "Platz": 4
     },
     {
       "Kategorie": "Wissensch./Natur",
-      "Punkte_gesamt": 18,
-      "Mittelwert": 2.25,
+      "Punkte_gesamt": 22,
+      "Mittelwert": 2.2,
       "Apr 25": 3,
       "Mai 25": 1,
       "Jul 25": 3,
@@ -176,7 +200,9 @@
       "Mrz 26": 3,
       "Apr 26": 1,
       "Mai 26": 0,
-      "Platz": 7
+      "Jul 26": 2,
+      "Sep 26": 2,
+      "Platz": 9
     }
   ],
   "quiz_nights": [
@@ -418,6 +444,66 @@
         "Kunst/Literatur": 3,
         "Rel./Mythol.": 2,
         "Sport": 3
+      }
+    },
+    {
+      "Datum": "2026-07-01",
+      "Monat": "Jul 26",
+      "Joker1": "Aktuelles",
+      "Joker2": "Musik",
+      "Sonderrunde_Thema": "Landkreise in Mittelfranken",
+      "Teil1": 6,
+      "Teil2": 6,
+      "Teil3": 6,
+      "Teil4": 8,
+      "Bonus": 4,
+      "Gesamt": 30,
+      "Pct_richtig": 0.43333333333333335,
+      "Platzierung": 12,
+      "Von": 15,
+      "cat_scores": {
+        "Kunst/Literatur": 2,
+        "Sport": 2,
+        "Geographie": 2,
+        "Film/Fernsehen": 1,
+        "Aktuelles": 4,
+        "Musik": 1,
+        "Rel./Mythol.": 2,
+        "Sonderrunde": 2,
+        "Wissensch./Natur": 2,
+        "Essen/Trinken": 3,
+        "Verschiedenes": 2,
+        "Geschichte": 3
+      }
+    },
+    {
+      "Datum": "2026-09-01",
+      "Monat": "Sep 26",
+      "Joker1": null,
+      "Joker2": null,
+      "Sonderrunde_Thema": "Biene Maja",
+      "Teil1": 7,
+      "Teil2": 8,
+      "Teil3": 8,
+      "Teil4": 12,
+      "Bonus": 0,
+      "Gesamt": 35,
+      "Pct_richtig": 0.5833333333333334,
+      "Platzierung": 5,
+      "Von": 15,
+      "cat_scores": {
+        "Kunst/Literatur": 3,
+        "Film/Fernsehen": 2,
+        "Wissensch./Natur": 2,
+        "Geographie": 3,
+        "Aktuelles": 2,
+        "Musik": 3,
+        "Verschiedenes": 4,
+        "Essen/Trinken": 1,
+        "Sonderrunde": 3,
+        "Sport": 4,
+        "Rel./Mythol.": 4,
+        "Geschichte": 4
       }
     }
   ]
