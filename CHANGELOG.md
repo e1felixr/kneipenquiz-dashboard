@@ -2,6 +2,12 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
+## v0.8.2 (22.10.2026, 14:27 Uhr)
+
+### Verbessert
+
+- **Konsistenz-Diagramm pflegt sich selbst** — „Stärke vs. Konsistenz" setzte elf Kategorienamen als freischwebende Schilder ins Bild, deren Position für jede Kategorie von Hand als Pixel-Verschiebung eingetragen war. Die Punkte wandern aber mit jedem Quizabend: Die Rangfolge nach Streuung hat sich seit dem Eintragen umgeworfen (Aktuelles von Platz 7 auf 4, Geschichte von 3 auf 5, Sport von 10 auf 8), womit die Schilder Überschneidungen auswichen, die es nicht mehr gab, und in neue hineinliefen. Das Diagramm heißt nun **„Verlässlichkeit je Kategorie"** und stellt die Namen auf die senkrechte Achse, sortiert nach Streuung — verlässlichste oben. Je Kategorie zeigt es den Mittelwert als Punkt, ±σ als Balken und die beobachtete Spanne vom schlechtesten bis zum besten Abend als helle Linie; die Farbe trägt die Stärke in denselben Stufen wie das Ranking daneben. Die Aussage bleibt vollständig, nur ist keine Handarbeit nach einem neuen Abend mehr nötig.
+
 ## v0.8.1 (22.10.2026, 13:11 Uhr)
 
 ### Behoben

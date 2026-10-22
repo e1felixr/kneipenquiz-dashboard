@@ -716,78 +716,89 @@ with col2:
     )
 
 with col3:
-    # Consistency – scatter: mean score vs std deviation
+    # Verlässlichkeit: Kategorien stehen auf der y-Achse, sortiert nach
+    # Streuung. Ersetzt den früheren Scatter mit handgesetzten Label-
+    # Positionen -- dessen Punkte wanderten mit jedem Abend, die festen
+    # Pixel-Offsets wanderten nicht mit und mieden Kollisionen, die es
+    # längst nicht mehr gab. Auf einer Achse stehen die Namen gesetzt.
     df_cons = df_cat[df_cat["Kategorie"] != "Sonderrunde"].copy()
     df_cons["Std"] = df_cons[months].std(axis=1)
+    df_cons["Min"] = df_cons[months].min(axis=1)
+    df_cons["Max"] = df_cons[months].max(axis=1)
+    # Plotly zeichnet das erste Element unten: absteigend sortieren stellt
+    # die verlässlichste Kategorie nach oben.
+    df_cons = df_cons.sort_values("Std", ascending=False).reset_index(drop=True)
+    cats_y = df_cons["Kategorie"].tolist()
+
+    # Die Farbe trägt die Stärke, in denselben Stufen wie das Ranking links
+    # -- so lassen sich beide Kategorie-Diagramme zusammen lesen.
+    def _staerke_farbe(val):
+        if val >= 3.2:
+            return "#08519c"
+        if val >= 2.8:
+            return "#2171b5"
+        if val >= 2.5:
+            return "#6baed6"
+        return "#c6dbef"
+
+    cons_colors = [_staerke_farbe(v) for v in df_cons["Mittelwert"]]
 
     fig_cons = go.Figure()
 
-    df_cons_sorted = df_cons.sort_values("Std").reset_index(drop=True)
-
+    # Hinterste Ebene: beobachtete Spanne vom schlechtesten bis zum besten Abend.
+    x_spanne, y_spanne = [], []
+    for cat, lo, hi in zip(cats_y, df_cons["Min"], df_cons["Max"]):
+        x_spanne += [lo, hi, None]
+        y_spanne += [cat, cat, None]
     fig_cons.add_trace(go.Scatter(
-        x=df_cons_sorted["Std"],
-        y=df_cons_sorted["Mittelwert"],
-        mode="markers",
-        marker=dict(
-            size=14,
-            color=df_cons_sorted["Mittelwert"],
-            colorscale=[[0, "#c6dbef"], [0.5, "#6baed6"], [1, "#2171b5"]],
-            cmin=2, cmax=4,
-            line=dict(width=1.5, color="#ffffff"),
-        ),
-        hovertemplate="%{text}<br>Ø %{y:.1f} Pkt. | σ %{x:.2f}<extra></extra>",
-        text=df_cons_sorted["Kategorie"],
+        x=x_spanne, y=y_spanne,
+        mode="lines",
+        line=dict(color="#d1d5db", width=2),
+        hoverinfo="skip",
+        showlegend=False,
     ))
 
-    # Labels with arrows – manually tuned per-point to avoid overlaps
-    # Order is sorted by Std ascending
-    cats_sorted = df_cons_sorted["Kategorie"].tolist()
-    # ax/ay = pixel offset from point to label (positive ax=right, positive ay=down)
-    # Manually tuned based on actual data positions to avoid all collisions
-    label_offsets = {
-        "Kunst/Literatur":  (-80, 20),    # Std=0.52 Mw=2.33 – links unten, isoliert
-        "Geographie":       (75, 20),     # Std=0.82 Mw=2.67 – rechts nach unten
-        "Geschichte":       (-75, -25),   # Std=0.82 Mw=3.33 – links oben
-        "Rel./Mythol.":     (75, -25),    # Std=0.82 Mw=2.67 – rechts nach oben (weg von Geo)
-        "Film/Fernsehen":   (-85, -10),   # Std=0.89 Mw=3.00 – weit links
-        "Wissensch./Natur": (-85, 30),    # Std=0.98 Mw=2.83 – links unten
-        "Aktuelles":        (20, -40),    # Std=1.03 Mw=3.33 – oben
-        "Essen/Trinken":    (75, 30),     # Std=1.05 Mw=2.50 – rechts unten
-        "Verschiedenes":    (-20, -40),   # Std=1.27 Mw=3.00 – oben
-        "Sport":            (70, 30),     # Std=1.47 Mw=2.83 – rechts unten
-        "Musik":            (60, -30),    # Std=1.55 Mw=3.00 – rechts oben
-    }
-    for i, row in df_cons_sorted.iterrows():
-        cat = row["Kategorie"]
-        ax, ay = label_offsets.get(cat, (40, -30))
-        fig_cons.add_annotation(
-            x=row["Std"], y=row["Mittelwert"],
-            text=f"<b>{cat}</b>",
-            showarrow=True,
-            arrowhead=0,
-            arrowwidth=1,
-            arrowcolor="#9ca3af",
-            ax=ax, ay=ay,
-            font=dict(size=10, color="#374151"),
-            bgcolor="rgba(255,255,255,0.9)",
-            borderpad=3,
-        )
+    # Mittelwert als Punkt, Streuung als Balken darum.
+    fig_cons.add_trace(go.Scatter(
+        x=df_cons["Mittelwert"], y=cats_y,
+        mode="markers",
+        error_x=dict(type="data", array=df_cons["Std"],
+                     color="#6b7280", thickness=3, width=0),
+        marker=dict(size=13, color=cons_colors,
+                    line=dict(width=1.5, color="#ffffff")),
+        hovertemplate="%{y}: Ø %{x:.2f} Pkt.<extra></extra>",
+        showlegend=False,
+    ))
+
+    # Zahlenspalte am rechten Rand: die Streuung je Kategorie.
+    fig_cons.add_trace(go.Scatter(
+        x=[5.45] * len(cats_y), y=cats_y,
+        mode="text",
+        text=[f"σ {_de(s, 2)}" for s in df_cons["Std"]],
+        textposition="middle center",
+        textfont=dict(size=11, color="#6b7280"),
+        hoverinfo="skip",
+        showlegend=False,
+    ))
+
     fig_cons.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text="Stärke vs. Konsistenz", font=dict(size=16)),
-        xaxis=dict(title="Streuung σ (links = konstanter)", gridcolor="rgba(0,0,0,0.05)",
-                   range=[0.1, 2.0]),
-        yaxis=dict(title="Ø Punkte", gridcolor="rgba(0,0,0,0.05)",
-                   range=[1.8, 4.0]),
+        title=dict(text=f"Verlässlichkeit je Kategorie ({n_nights} Abende)",
+                   font=dict(size=16)),
+        xaxis=dict(title="Punkte je Abend (max. 5)",
+                   range=[-0.2, 5.9], tickvals=[0, 1, 2, 3, 4, 5],
+                   gridcolor="rgba(0,0,0,0.05)"),
+        yaxis=dict(tickfont=dict(size=11), automargin=True),
         height=500,
     )
     st.plotly_chart(fig_cons, width='content', config=PLOTLY_CONFIG)
     st.markdown(
-        '<p class="info-text">Oben links = stark &amp; konstant (ideal). '
-        'Unten rechts = schwach &amp; schwankend.<br>'
-        '<b>Joker-Tipp:</b> Kategorien oben links lohnen sich als Joker &ndash; '
-        'hohe Punktzahl ist dort am wahrscheinlichsten. '
-        'Kategorien rechts sind riskant: mal top, mal flop.</p>',
+        '<p class="info-text">Punkt = Mittelwert, grauer Balken = ±σ, '
+        'helle Linie = schlechtester bis bester Abend. Nach unten nimmt die '
+        'Schwankung zu; die Farbe trägt die Stärke wie im Ranking links.<br>'
+        '<b>Joker-Tipp:</b> dunkle Punkte weit rechts mit kurzem Balken &ndash; '
+        'dort ist eine hohe Punktzahl am wahrscheinlichsten. Lange Balken sind '
+        'riskant: mal top, mal flop.</p>',
         unsafe_allow_html=True,
     )
 
