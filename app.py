@@ -64,7 +64,13 @@ st.markdown("""
         border: 1px solid #d1d5db;
         border-radius: 8px;
         padding: 1.2rem 1rem;
-        min-height: 120px;
+        /* Gleiche Hoehe fuer alle Karten einer Reihe. height:100% hilft hier
+           nicht: Streamlit schachtelt zwischen Spalte und Karte mehrere
+           Container ohne eigene Hoehe, die Prozentangabe laeuft also ins
+           Leere. Eine Mindesthoehe, die auch eine zweizeilige Unterzeile
+           fasst, ist der stabile Weg -- gemessen waren 141 px einzeilig und
+           163 px zweizeilig. */
+        min-height: 165px;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -201,6 +207,23 @@ st.markdown("""
         }
     }
 
+    /* AUSNAHME von der Roboto-Regel ganz oben -- muss am Ende stehen.
+       Streamlit zeichnet seine Symbole (Aufklapp-Pfeil, Sidebar-Umschalter,
+       Tabellen-Werkzeugleiste) nicht als Zeichen, sondern als LIGATUREN der
+       Schrift "Material Symbols Rounded": Im span steht der Klartext
+       "expand_more" bzw. "keyboard_double_arrow_right", den erst die Schrift
+       zum Pfeil zusammenzieht. Die globale Regel mit * und !important nahm
+       den Symbolen diese Schrift -- und damit stand der Name im Klartext da.
+       Die Attribut-Selektoren haben hoehere Spezifitaet als * und span und
+       gewinnen daher trotz des !important oben. */
+    [data-testid="stIconMaterial"],
+    span[data-testid="stIconMaterial"],
+    .material-symbols-rounded,
+    span[class*="material-symbols"] {
+        font-family: 'Material Symbols Rounded' !important;
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -320,15 +343,20 @@ trend_class = "" if trend_delta > 0 else "bad"
 cols = st.columns(6)
 kpi_data = [
     ("Quizabende", str(n_nights), f"seit {_first_month}", ""),
+    # Die Spanne darf nicht am Gedankenstrich umbrechen -- "28-" und "47" auf
+    # zwei Zeilen las sich wie zwei Angaben.
     ("Punkte pro Abend", _de(avg_points),
-     f"Median {_de(med_points, trim=True)} · Spanne {min(night_points)}–{max(night_points)}", ""),
+     f"Median {_de(med_points, trim=True)} · "
+     f"<span style='white-space:nowrap'>Spanne {min(night_points)}–{max(night_points)}</span>", ""),
     ("Ø Richtig", f"{avg_pct:.0%}", f"von max. 60 Fragen", ""),
     ("Beste Platzierung", f"{best_placement}.", f"{best_placement_q['Monat']} ({best_placement_q['Von']} Teams)", ""),
     ("Ø Feldposition", f"{avg_feldpos:.0f} %",
      f"Ø Platz {_de(avg_placement)} bei {_de(np.mean([q['Von'] for q in quiz_nights if q['Von']]))} Teams",
      "" if avg_feldpos < 50 else "bad"),
-    ("Trend Richtig-Quote", f"{trend_arrow} {abs(trend_delta):.0%}",
-     f"vs. {quiz_nights[-2]['Monat']}", trend_class),
+    # Kurzes Label: "Trend Richtig-Quote" brach als einziges um und machte
+    # seine Karte hoeher als die fuenf daneben.
+    ("Trend Quote", f"{trend_arrow} {abs(trend_delta):.0%}",
+     f"{quiz_nights[-1]['Monat']} vs. {quiz_nights[-2]['Monat']}", trend_class),
 ]
 
 for col, (label, value, sub, cls) in zip(cols, kpi_data):
@@ -645,9 +673,10 @@ all_cats = df_dev["Kategorie"].tolist()
 cat_color_map = {cat: CAT_COLORS[i % len(CAT_COLORS)] for i, cat in enumerate(all_cats)}
 fig_dev2 = go.Figure()
 
-# Plotly stapelt die zuerst hinzugefügte Spur unten: umkehren stellt die
-# stärkste Kategorie ans untere Ende.
-for cat in reversed(all_cats):
+# Plotly stapelt die zuerst hinzugefügte Spur unten, und all_cats ist nach
+# Mittelwert absteigend sortiert -- die stärkste Kategorie kommt also zuerst
+# und landet damit an der Nulllinie, wo sich am besten ablesen lässt.
+for cat in all_cats:
     werte = [int(df_cat[df_cat["Kategorie"] == cat].iloc[0][m]) for m in months]
     fig_dev2.add_trace(go.Bar(
         x=months,
@@ -734,7 +763,15 @@ with col1:
         title=dict(text="Sonderrunden-Ergebnisse", font=dict(size=16)),
         xaxis=dict(range=[0, 5.5], tickvals=[0, 1, 2, 3, 4, 5],
                    gridcolor="rgba(0,0,0,0.05)", title="Punkte (max. 5)"),
-        yaxis=dict(tickfont=dict(size=10), automargin=True),
+        # Die Themenart gehört auf die Beschriftung, nicht nur auf den Balken:
+        # Die klassischen Themen brachten ausnahmslos null Punkte, haben also
+        # gar keinen Balken, der eine Farbe tragen könnte -- ausgerechnet dort
+        # wäre sie am aussagekräftigsten.
+        yaxis=dict(tickfont=dict(size=10), automargin=True,
+                   tickmode="array",
+                   tickvals=sonder_labels[::-1],
+                   ticktext=[f'<span style="color:{ART_FARBE.get(a, "#bab0ac")}">{lbl}</span>'
+                             for lbl, a in zip(sonder_labels[::-1], sonder_arten[::-1])]),
         height=CHART_H_TALL,
         bargap=0.25,
     )

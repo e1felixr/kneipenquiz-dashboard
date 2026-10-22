@@ -102,6 +102,15 @@ POPCULTURE_KEYWORDS = [
 ]
 
 
+def _de(x, dez=1):
+    """Zahl in deutscher Schreibweise, also mit Dezimalkomma.
+
+    Die Texte aus compute_insights() erscheinen sowohl im Erkenntnisse-Reiter
+    der GUI als auch im Web-Dashboard; beide schreiben Zahlen sonst mit Komma.
+    """
+    return f"{x:.{dez}f}".replace(".", ",")
+
+
 def format_monat(year, month):
     """Gibt den Monat als Anzeige-String zurueck, z.B. 'Apr 26' fuer April 2026."""
     return f"{GERMAN_MONTHS[month - 1]} {str(year)[-2:]}"
@@ -591,11 +600,11 @@ def compute_insights(quiz_nights):
             if p_last < p_first - 0.5:
                 items.append({"kind": "info",
                     "text": f"Auch die mittlere Platzierung rückt nach vorn: "
-                            f"Ø {p_first:.1f} früher, Ø {p_last:.1f} zuletzt."})
+                            f"Ø {_de(p_first, 1)} früher, Ø {_de(p_last, 1)} zuletzt."})
             elif p_last > p_first + 0.5:
                 items.append({"kind": "warnung",
                     "text": f"Die mittlere Platzierung verschlechtert sich: "
-                            f"Ø {p_first:.1f} früher, Ø {p_last:.1f} zuletzt."})
+                            f"Ø {_de(p_first, 1)} früher, Ø {_de(p_last, 1)} zuletzt."})
 
     last_night = sorted_nights[-1]
     items.append({"kind": "info",
@@ -615,8 +624,8 @@ def compute_insights(quiz_nights):
     for kat in top2:
         scores = _scores_of(kat)
         items.append({"kind": "info",
-            "text": f"{kat} — Ø {cat_avgs[kat]:.2f}/5, "
-                    f"Streuung σ {cat_stds[kat]:.2f}, "
+            "text": f"{kat} — Ø {_de(cat_avgs[kat], 2)}/5, "
+                    f"Streuung σ {_de(cat_stds[kat], 2)}, "
                     f"Bandbreite {min(scores)}–{max(scores)}."})
     if cat_stds[top2[0]] < 1.0:
         items.append({"kind": "tipp",
@@ -642,7 +651,7 @@ def compute_insights(quiz_nights):
         recent = scores[-3:] if len(scores) >= 3 else scores
         recent_txt = ", ".join(str(s) for s in recent)
         items.append({"kind": "info",
-            "text": f"{kat} — Ø {cat_avgs[kat]:.2f}/5, zuletzt {recent[-1]} "
+            "text": f"{kat} — Ø {_de(cat_avgs[kat], 2)}/5, zuletzt {recent[-1]} "
                     f"(letzte Abende: {recent_txt})."})
         if len(scores) >= 3 and mean(scores[-2:]) < cat_avgs[kat] - 0.5:
             items.append({"kind": "warnung",
@@ -673,7 +682,7 @@ def compute_insights(quiz_nights):
         hits = sum(1 for _, _, h in uses if h)
         avg = mean(s for s, _, _ in uses)
         items.append({"kind": "info",
-            "text": f"{kat}: {len(uses)}× gewählt, Ø {avg:.1f}, "
+            "text": f"{kat}: {len(uses)}× gewählt, Ø {_de(avg, 1)}, "
                     f"Treffer {hits} von {len(uses)}."})
     sections.append({"titel": "Joker-Bilanz", "lead": None, "items": items})
 
@@ -716,7 +725,7 @@ def compute_insights(quiz_nights):
     for kat, _, hr in top_pair:
         items.append({"kind": "info",
             "text": f"{kat} — Trefferquote {hr:.0%}, "
-                    f"Ø {cat_avgs.get(kat, mean(_scores_of('Sonderrunde')) if kat == 'Sonderrunde' else 0):.1f}/5."})
+                    f"Ø {_de(cat_avgs.get(kat, mean(_scores_of('Sonderrunde')) if kat == 'Sonderrunde' else 0), 1)}/5."})
     sections.append({"titel": "Joker-Empfehlung",
                      "lead": "Abgeleitet aus historischer Joker-Hit-Rate und "
                              "Kategorie-Mittelwert.",
@@ -743,19 +752,19 @@ def compute_insights(quiz_nights):
         themes = ", ".join(f"{t} ({s}/5)" for t, s, _ in classical)
         items.append({"kind": "info",
             "text": f"Klassische Bildungsthemen ({len(classical)}×, "
-                    f"Ø {avg_cl:.1f}/5): {themes}."})
+                    f"Ø {_de(avg_cl, 1)}/5): {themes}."})
     if popculture:
         avg_pop = mean(s for _, s, _ in popculture)
         themes = ", ".join(f"{t} ({s}/5)" for t, s, _ in popculture)
         items.append({"kind": "info",
             "text": f"Popkultur und Alltagsnähe ({len(popculture)}×, "
-                    f"Ø {avg_pop:.1f}/5): {themes}."})
+                    f"Ø {_de(avg_pop, 1)}/5): {themes}."})
     if other:
         avg_ot = mean(s for _, s, _ in other)
         themes = ", ".join(f"{t} ({s}/5)" for t, s, _ in other)
         items.append({"kind": "info",
             "text": f"Sonstige Themen ({len(other)}×, "
-                    f"Ø {avg_ot:.1f}/5): {themes}."})
+                    f"Ø {_de(avg_ot, 1)}/5): {themes}."})
 
     if (classical and popculture
             and mean(s for _, s, _ in popculture)
@@ -787,12 +796,12 @@ def compute_insights(quiz_nights):
         if diff_g > 3:
             items.append({"kind": "info",
                 "text": f"Mit {last_night['Gesamt']} Punkten deutlich über dem "
-                        f"Schnitt der bisherigen Abende (Ø {avg_gesamt:.1f}) — "
+                        f"Schnitt der bisherigen Abende (Ø {_de(avg_gesamt, 1)}) — "
                         f"ein guter Lauf."})
         elif diff_g < -3:
             items.append({"kind": "warnung",
                 "text": f"Mit {last_night['Gesamt']} Punkten unter dem Schnitt "
-                        f"der vorigen Abende (Ø {avg_gesamt:.1f})."})
+                        f"der vorigen Abende (Ø {_de(avg_gesamt, 1)})."})
     sections.append({"titel": "Letzter Abend", "lead": None, "items": items})
 
     # ----------------------------------------------------------------------

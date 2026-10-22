@@ -2,6 +2,23 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
+## v0.9.3 (22.10.2026, 15:27 Uhr)
+
+### Behoben
+
+- **Symbolnamen statt Pfeilen** — im Aufklapper und am Sidebar-Umschalter stand Klartext wie `keyboard_arrow_right`. Streamlit zeichnet seine Symbole nicht als Zeichen, sondern als Ligaturen der Schrift „Material Symbols Rounded": Im Element steht der Name, den erst die Schrift zum Pfeil zusammenzieht. Die Schriftregel ganz oben im Stylesheet (`*` mit `!important`) nahm den Symbolen diese Schrift — und damit blieb der Name stehen. Der Fehler lag von Anfang an im Stylesheet; sichtbar wurde er erst mit dem Rohdaten-Aufklapper aus v0.9.0.
+- **Stapeldiagramm zeigte das Gegenteil seines Titels** — „stärkste unten" versprach der Titel, tatsächlich lag Aktuelles (Ø 3,3) ganz oben und Wissensch./Natur (Ø 2,2) an der Nulllinie. Eine Umkehrung zu viel. Die stärkste Kategorie steht jetzt unten, wo sich am besten ablesen lässt.
+
+### Verbessert
+
+- **Kennzahlen-Karten sind gleich hoch** — „Trend Richtig-Quote" und „Ø Feldposition" brachen als einzige um und standen dadurch 22 Pixel höher als ihre Nachbarn. Das Label heißt nun kurz „Trend Quote", die Spanne bricht nicht mehr am Gedankenstrich, und alle zehn Karten messen einheitlich 165 Pixel.
+- **Sonderrunden-Themenart auch bei null Punkten erkennbar** — die Färbung saß auf den Balken, doch gerade die klassischen Themen haben null Punkte und damit gar keinen Balken, der Farbe tragen könnte. Die Themenart steht jetzt auf der Beschriftung: Die drei rotbraunen Namen stehen allesamt bei null.
+- **Erkenntnisse mit Dezimalkomma** — die abgeleiteten Beobachtungen schrieben „Ø 3.2" und „σ 0.90", während das übrige Dashboard Komma setzt. 14 Stellen in `compute_insights()` umgestellt; der Erkenntnisse-Reiter der Eingabe-GUI liest dieselben Texte und profitiert mit.
+
+### Intern
+
+- Sichtgeprüft im Browser (Playwright, Chromium 145): Kartenhöhen gemessen, alle sieben Diagramme und die Erkenntnis-Karten angesehen. Die beiden Befunde oben waren nur am Bild zu erkennen, nicht am Code.
+
 ## v0.9.2 (22.10.2026, 15:03 Uhr)
 
 ### Verbessert
