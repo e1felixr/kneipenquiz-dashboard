@@ -6,32 +6,31 @@ Nutzer-sichtbarer Text: mit Umlauten.
 """
 
 import pathlib
+import shutil
 import sys
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib
-matplotlib.use("TkAgg")
-
 from quiz_data import (
     CATEGORIES,
+    JOKER_KEINER,
     GERMAN_MONTHS,
     DATA_PATH,
     load_data,
     save_data,
     quiznight_from_form,
     validate_form,
-    format_monat,
-    iso_to_monat,
     iso_to_monat_long,
     compute_bonus,
+    normalize_joker,
     compute_dashboard_data,
     compute_insights,
 )
+
+# Auswahl der Joker-Comboboxen: '(keiner)' vorweg, dann der Kategorien-Kanon.
+JOKER_CHOICES = [JOKER_KEINER] + list(CATEGORIES)
 
 
 def _bind_combo_typeahead(combo):
@@ -73,17 +72,145 @@ def _bind_combo_typeahead(combo):
 
     combo.bind("<KeyPress>", on_key)
 
-# Icon-Pfad: im EXE-Modus aus sys._MEIPASS, sonst neben dem Modul.
-if getattr(sys, "frozen", False):
-    _BUNDLE = pathlib.Path(getattr(sys, "_MEIPASS", str(pathlib.Path(sys.executable).parent)))
-else:
-    _BUNDLE = pathlib.Path(__file__).parent
-ICON_PATH = _BUNDLE / "icon.ico"
+
+# Steuertasten, die beim Tippen im Autocomplete-Feld nichts filtern sollen.
+_AUTOCOMPLETE_STEUERTASTEN = {
+    "Left", "Right", "Up", "Down", "Return", "Escape", "Tab",
+    "Shift_L", "Shift_R", "Control_L", "Control_R", "Alt_L", "Alt_R",
+    "Home", "End", "Prior", "Next",
+}
+
+
+def _bind_combo_autocomplete(combo):
+    """Editierbare Combobox: Tippen filtert die Liste und vervollstaendigt.
+
+    Die Kandidaten stehen in combo._full_choices (dynamisch gepflegt, z. B.
+    ohne bereits belegte Kategorien). Beim Tippen wird die Dropdown-Liste
+    (values) auf die Treffer reduziert -- Praefix-Treffer zuerst, dann Teil-
+    string -- und auf den ersten Praefix-Treffer vervollstaendigt; der
+    ergaenzte Teil bleibt markiert, sodass Weitertippen ihn ersetzt.
+    BackSpace/Delete filtert nur, ohne erneut zu vervollstaendigen.
+
+    Als "getippt" gilt der Text VOR der Markierung, nicht der ganze Feldinhalt.
+    Sonst haelt ein zweiter Handler-Lauf die eigene Ergaenzung faelschlich fuer
+    Eingabe, hebt die Markierung auf -- und Weitertippen haengt hinten an
+    ("Verschiedenessch"). Das passiert real beim schnellen Tippen: wer die
+    naechste Taste drueckt, ehe er die vorige losgelassen hat, erzeugt
+    KeyRelease-Ereignisse, die dem bereits ergaenzten Text nachlaufen.
+    Faellt die Markierung dennoch weg, wird der Ueberschuss hinter der
+    Ergaenzung an den eigenen Praefix zurueckgesetzt (Selbstheilung).
+    """
+    combo._full_choices = list(combo.cget("values"))
+    combo._auto_typed = ""     # zuletzt vom Nutzer getippter Praefix
+    combo._auto_match = ""     # die daraus eingesetzte Vollform
+    combo._auto_stamp = 0.0
+
+    def merken(typed, match):
+        combo._auto_typed = typed
+        combo._auto_match = match
+        combo._auto_stamp = time.monotonic()
+
+    def getippter_teil():
+        """Liefert (Nutzer-Eingabe, ob der Feldinhalt zu reparieren ist)."""
+        text = combo.get()
+        try:
+            if combo.selection_present():
+                return text[:int(combo.index("sel.first"))], False
+        except tk.TclError:
+            pass
+        # Ohne Markierung: haengt hinter der letzten Ergaenzung Weiteres, hat
+        # der Nutzer im Tippfluss darueber hinweggeschrieben -- Ueberschuss an
+        # den eigenen Praefix zuruecksetzen. Nur unmittelbar nach der
+        # Ergaenzung, damit spaeteres Weiterschreiben unangetastet bleibt.
+        match = combo._auto_match
+        if (match and text.startswith(match) and len(text) > len(match)
+                and time.monotonic() - combo._auto_stamp < 5.0):
+            return combo._auto_typed + text[len(match):], True
+        return text, False
+
+    def on_keyrelease(event):
+        ks = event.keysym
+        if ks in _AUTOCOMPLETE_STEUERTASTEN:
+            return
+        typed, repariert = getippter_teil()
+        if repariert:
+            combo.delete(0, "end")
+            combo.insert(0, typed)
+        full = getattr(combo, "_full_choices", None) or []
+        if not typed:
+            merken("", "")
+            combo.configure(values=full)
+            return
+        low = typed.lower()
+        starts = [c for c in full if c.lower().startswith(low)]
+        contains = [c for c in full if low in c.lower() and c not in starts]
+        combo.configure(values=(starts + contains) or full)
+        if ks in ("BackSpace", "Delete"):
+            merken(typed, "")
+            return  # nur filtern, nicht ergaenzen
+        if starts:
+            match = starts[0]
+            combo.delete(0, "end")
+            combo.insert(0, match)
+            combo.select_range(len(typed), "end")
+            combo.icursor(len(typed))
+            merken(typed, match)
+        else:
+            merken(typed, "")
+
+    combo.bind("<KeyRelease>", on_keyrelease)
+    combo._autocomplete_handler = on_keyrelease  # Testhaken, sonst ungenutzt
+
+
+# Icon-Pfad: Kandidaten-Kaskade analog Loriot/encoder.py (resolve_ffmpeg).
+#   1) PyInstaller _MEIPASS (falls gesetzt, EXE-Kompat)
+#   2) Nuitka-Onefile: gebuendelte Ressource liegt neben dem Modul (__file__)
+#   3) Neben der gefrorenen EXE (Fallback)
+#   4) Entwicklung: neben dem Modul
+def _resolve_icon_path():
+    candidates = []
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(pathlib.Path(meipass) / "icon.ico")
+    if getattr(sys, "frozen", False) or "__compiled__" in globals():
+        candidates.append(pathlib.Path(__file__).parent / "icon.ico")
+        candidates.append(pathlib.Path(sys.executable).parent / "icon.ico")
+    else:
+        candidates.append(pathlib.Path(__file__).parent / "icon.ico")
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[-1]
+
+
+ICON_PATH = _resolve_icon_path()
+
+
+# Logo-Pfad: gleiche Kandidaten-Kaskade wie beim Icon, nur fuer die
+# Header-Bildmarke (logo.png). Wird via tk.PhotoImage geladen -- kein PIL
+# zur Laufzeit noetig (Tk 8.6 liest PNG nativ).
+def _resolve_logo_path():
+    candidates = []
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(pathlib.Path(meipass) / "logo.png")
+    if getattr(sys, "frozen", False) or "__compiled__" in globals():
+        candidates.append(pathlib.Path(__file__).parent / "logo.png")
+        candidates.append(pathlib.Path(sys.executable).parent / "logo.png")
+    else:
+        candidates.append(pathlib.Path(__file__).parent / "logo.png")
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[-1]
+
+
+LOGO_PATH = _resolve_logo_path()
 
 # ---------------------------------------------------------------------------
 # Design-Konstanten
 # ---------------------------------------------------------------------------
-CORPORATE_GREEN = "#4a8f24"
+CORPORATE_GREEN = "#66b32f"
 CORPORATE_GREEN_HOVER = "#3a6d1b"
 BACKGROUND = "#e5e7eb"
 CARD_BG = "#ffffff"
@@ -101,7 +228,7 @@ PAD_LARGE = 15
 PAD_MEDIUM = 10
 PAD_SMALL = 5
 
-VERSION = "0.1.0"
+VERSION = "0.8.1"
 
 # Farbpalette fuer Kategorien (parallel zu app.py)
 CAT_COLORS = [
@@ -147,12 +274,13 @@ class QuizEingabeApp(tk.Tk):
         self._patch_fonts(font_family)
 
         self.title(f"Kneipenquiz Schwabach v{VERSION}")
+        # Wiederherstellungs-Groesse (falls der Nutzer entmaximiert)
         self.geometry("1200x800")
         self._center_window(1200, 800)
         self.configure(bg=BACKGROUND)
         self.resizable(True, True)
 
-        # Bier-Icon (still bei Fehler, falls Datei fehlt)
+        # Fragezeichen-Icon (still bei Fehler, falls Datei fehlt)
         try:
             if ICON_PATH.exists():
                 self.iconbitmap(str(ICON_PATH))
@@ -162,12 +290,19 @@ class QuizEingabeApp(tk.Tk):
         # Anwendungsstatus
         self.quiz_nights = []
         self._mode = "inactive"   # "inactive" | "new" | ("edit", datum)
+        self._logo_img = None     # GC-Schutz fuer das Header-Logo
 
         self._setup_styles()
         self._build_ui()
         self._load_data()
         self._refresh_dashboard()
         self._refresh_insights()
+
+        # Immer maximiert starten (Windows: "zoomed")
+        try:
+            self.state("zoomed")
+        except tk.TclError:
+            self.attributes("-zoomed", True)
 
     # ------------------------------------------------------------------
     # Font-Hilfsmethoden
@@ -273,7 +408,7 @@ class QuizEingabeApp(tk.Tk):
         self.notebook.add(self._tab_insights, text="Erkenntnisse")
         self._build_table_block(self._tab_eingabe)
         self._build_form_block(self._tab_eingabe)
-        self._build_dashboard_tab(self._tab_dashboard)
+        self._dashboard_built = False
         self._build_insights_tab(self._tab_insights)
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
 
@@ -282,23 +417,49 @@ class QuizEingabeApp(tk.Tk):
         hdr = tk.Frame(self, bg=BACKGROUND)
         hdr.pack(fill="x", padx=PAD_LARGE, pady=(PAD_LARGE, 0))
 
-        tk.Label(hdr, text="🍺 Kneipenquiz Schwabach",
+        # Fragezeichen-Logo links, ueber beide Textzeilen (Schwesterprojekt-Stil)
+        self._logo_img = self._load_logo(44)
+        if self._logo_img is not None:
+            logo_lbl = tk.Label(hdr, image=self._logo_img, bg=BACKGROUND)
+            logo_lbl.image = self._logo_img  # GC-Schutz
+            logo_lbl.grid(row=0, column=0, rowspan=2, sticky="w",
+                          padx=(0, PAD_MEDIUM))
+
+        tk.Label(hdr, text="Kneipenquiz Schwabach",
                  font=FONT_TITLE, bg=BACKGROUND, fg=TEXT_PRIMARY
-                 ).pack(anchor="w")
+                 ).grid(row=0, column=1, sticky="sw")
         tk.Label(hdr, text=f"Version {VERSION}",
                  font=FONT_SMALL, bg=BACKGROUND, fg=TEXT_SECONDARY
-                 ).pack(anchor="w")
+                 ).grid(row=1, column=1, sticky="nw")
 
         sep = tk.Frame(self, height=3, bg=CORPORATE_GREEN)
         sep.pack(fill="x", padx=0, pady=(PAD_SMALL, 0))
 
+    def _load_logo(self, zielhoehe):
+        """Laedt logo.png und skaliert es per subsample auf ~zielhoehe px.
+
+        Nutzt tk.PhotoImage (Tk liest PNG nativ) -- kein PIL zur Laufzeit.
+        Gibt None zurueck, wenn die Datei fehlt oder nicht ladbar ist.
+        """
+        try:
+            if not LOGO_PATH.exists():
+                return None
+            raw = tk.PhotoImage(file=str(LOGO_PATH))
+            factor = max(1, round(raw.height() / zielhoehe))
+            return raw.subsample(factor, factor)
+        except Exception:
+            return None
+
     # --- 2. Tabellen-Block ---
     def _build_table_block(self, parent):
         outer = ttk.LabelFrame(parent, text="Bestehende Abende")
-        outer.pack(fill="x", padx=PAD_LARGE, pady=(PAD_MEDIUM, 0))
+        outer.pack(fill="both", expand=True, padx=PAD_LARGE, pady=(PAD_MEDIUM, 0))
 
+        # Die Liste nimmt den Raum, den das flache 2x2-Formular uebriglaesst --
+        # auf grossen Schirmen sind so alle Abende ohne Scrollen zu sehen.
+        # Gepackt wird sie zuletzt, damit bei Enge sie schrumpft, nicht die
+        # Buttons darunter.
         tree_frame = tk.Frame(outer, bg=BACKGROUND)
-        tree_frame.pack(fill="x", padx=PAD_SMALL, pady=PAD_SMALL)
 
         cols = ("monat", "joker1", "joker2", "sonderrunde",
                 "gesamt", "platz")
@@ -321,15 +482,17 @@ class QuizEingabeApp(tk.Tk):
                             command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
 
-        self.tree.pack(side="left", fill="x", expand=True)
         vsb.pack(side="right", fill="y")
+        self.tree.pack(side="left", fill="both", expand=True)
 
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
         self.tree.bind("<Double-1>", lambda e: self._on_edit())
 
-        # Buttons unterhalb der Tabelle
+        # Buttons unterhalb der Tabelle (am Unterrand verankert, damit die
+        # wachsende Liste sie nicht verdraengt)
         btn_frame = tk.Frame(outer, bg=BACKGROUND)
-        btn_frame.pack(fill="x", padx=PAD_SMALL, pady=(0, PAD_SMALL))
+        btn_frame.pack(side="bottom", fill="x", padx=PAD_SMALL,
+                       pady=(0, PAD_SMALL))
 
         self.btn_new = ttk.Button(btn_frame, text="+ Neuer Abend",
                                   style="Accent.TButton",
@@ -347,11 +510,19 @@ class QuizEingabeApp(tk.Tk):
                                      command=self._on_delete)
         self.btn_delete.pack(side="left")
 
+        tree_frame.pack(fill="both", expand=True, padx=PAD_SMALL, pady=PAD_SMALL)
+
     # --- 3. Formular-Block ---
     def _build_form_block(self, parent):
+        # Aktions-Buttons zuerst am unteren Rand verankern: pack raeumt ihnen
+        # damit Platz ein, ehe das Formular den Rest fuellt -- sonst schneidet
+        # ein zu kleines Fenster ausgerechnet 'Speichern' ab.
+        self._build_form_buttons(parent)
+
+        # Kein expand: das Formular behaelt seine natuerliche Hoehe, der
+        # ueberschuessige Platz geht an die Abende-Liste darueber.
         self.form_frame = ttk.LabelFrame(parent, text="Eingabeformular")
-        self.form_frame.pack(fill="both", expand=True,
-                             padx=PAD_LARGE, pady=(PAD_MEDIUM, 0))
+        self.form_frame.pack(fill="x", padx=PAD_LARGE, pady=(PAD_MEDIUM, 0))
 
         # Status-Label ganz oben
         self.lbl_mode = ttk.Label(self.form_frame, text="Modus: inaktiv",
@@ -363,12 +534,10 @@ class QuizEingabeApp(tk.Tk):
         self._build_left_panel()
         self._build_right_panel()
 
-        # Spaltengewichte
+        # Spalten- und Zeilengewichte: die Panel-Zeile traegt den freien Platz.
         self.form_frame.columnconfigure(0, weight=0)
         self.form_frame.columnconfigure(1, weight=1)
-
-        # Aktions-Buttons
-        self._build_form_buttons()
+        self.form_frame.rowconfigure(1, weight=1)
 
         # Initiale Deaktivierung
         self._set_form_state("disabled")
@@ -376,7 +545,9 @@ class QuizEingabeApp(tk.Tk):
     def _build_left_panel(self):
         """Linke Spalte: Eckdaten."""
         lf = ttk.LabelFrame(self.form_frame, text="Eckdaten")
-        lf.grid(row=1, column=0, sticky="nsew",
+        # 'new': oben verankert, nicht in die Hoehe gezogen -- sonst klafft
+        # unter den Feldern eine leere Flaeche bis zum Rahmenrand.
+        lf.grid(row=1, column=0, sticky="new",
                 padx=(PAD_MEDIUM, PAD_SMALL), pady=PAD_SMALL)
         self._left_frame = lf
 
@@ -387,6 +558,7 @@ class QuizEingabeApp(tk.Tk):
                                       width=8, font=FONT_NORMAL)
         self.cmb_monat.grid(row=0, column=1, sticky="w",
                             padx=PAD_SMALL, pady=2)
+        _bind_combo_typeahead(self.cmb_monat)
 
         ttk.Label(lf, text="Jahr:").grid(
             row=0, column=2, sticky="w", padx=(PAD_MEDIUM, PAD_SMALL), pady=2)
@@ -395,27 +567,29 @@ class QuizEingabeApp(tk.Tk):
         self.spn_jahr.grid(row=0, column=3, sticky="w",
                            padx=PAD_SMALL, pady=2)
 
-        # Joker 1
+        # Joker 1 -- '(keiner)' steht als erste Wahl fuer einen Abend ohne Joker.
         ttk.Label(lf, text="Joker 1:").grid(
             row=1, column=0, sticky="w", padx=PAD_SMALL, pady=2)
-        self.cmb_joker1 = ttk.Combobox(lf, values=list(CATEGORIES),
-                                        state="readonly", width=18,
+        self.cmb_joker1 = ttk.Combobox(lf, values=JOKER_CHOICES,
+                                        state="normal", width=18,
                                         font=FONT_NORMAL)
         self.cmb_joker1.grid(row=1, column=1, columnspan=3, sticky="w",
                               padx=PAD_SMALL, pady=2)
-        _bind_combo_typeahead(self.cmb_joker1)
+        _bind_combo_autocomplete(self.cmb_joker1)
         self.cmb_joker1.bind("<<ComboboxSelected>>", lambda e: self._recalc())
+        self.cmb_joker1.bind("<FocusOut>", lambda e: self._recalc())
 
         # Joker 2
         ttk.Label(lf, text="Joker 2:").grid(
             row=2, column=0, sticky="w", padx=PAD_SMALL, pady=2)
-        self.cmb_joker2 = ttk.Combobox(lf, values=list(CATEGORIES),
-                                        state="readonly", width=18,
+        self.cmb_joker2 = ttk.Combobox(lf, values=JOKER_CHOICES,
+                                        state="normal", width=18,
                                         font=FONT_NORMAL)
         self.cmb_joker2.grid(row=2, column=1, columnspan=3, sticky="w",
                               padx=PAD_SMALL, pady=2)
-        _bind_combo_typeahead(self.cmb_joker2)
+        _bind_combo_autocomplete(self.cmb_joker2)
         self.cmb_joker2.bind("<<ComboboxSelected>>", lambda e: self._recalc())
+        self.cmb_joker2.bind("<FocusOut>", lambda e: self._recalc())
 
         # Sonderrunden-Thema
         ttk.Label(lf, text="Sonderrunde Thema:").grid(
@@ -466,9 +640,15 @@ class QuizEingabeApp(tk.Tk):
                            sticky="w", padx=PAD_SMALL, pady=2)
 
     def _build_right_panel(self):
-        """Rechte Spalte: vier Teil-Frames."""
+        """Rechte Spalte: die vier Teil-Frames als 2x2-Raster.
+
+        Zwei Reihen statt vier -- das halbiert die Hoehe des Formulars und
+        haelt die Aktions-Buttons auch auf niedrigen Bildschirmen im Blick.
+        """
         right = ttk.Frame(self.form_frame)
-        right.grid(row=1, column=1, sticky="nsew",
+        # 'nw': das Raster bleibt so breit wie sein Inhalt und klebt oben --
+        # gedehnte Rahmen wirken auf breiten Schirmen hohl.
+        right.grid(row=1, column=1, sticky="nw",
                    padx=(PAD_SMALL, PAD_MEDIUM), pady=PAD_SMALL)
         self._right_frame = right
 
@@ -478,10 +658,11 @@ class QuizEingabeApp(tk.Tk):
         self._teil_sum_labels = []  # [teil] -> Label
 
         for t in range(4):
+            zeile, spalte = divmod(t, 2)
             lf = ttk.LabelFrame(right, text=f"Teil {t + 1}")
-            lf.grid(row=t, column=0, sticky="ew",
-                    padx=0, pady=(0, PAD_SMALL))
-            right.columnconfigure(0, weight=1)
+            lf.grid(row=zeile, column=spalte, sticky="new",
+                    padx=(0, PAD_SMALL) if spalte == 0 else (PAD_SMALL, 0),
+                    pady=(0, PAD_SMALL))
 
             teil_vars = []
             teil_cmbs = []
@@ -491,12 +672,13 @@ class QuizEingabeApp(tk.Tk):
                 var.trace_add("write", self._recalc)
                 teil_vars.append(var)
 
-                cmb = ttk.Combobox(lf, values=list(CATEGORIES), state="readonly",
+                cmb = ttk.Combobox(lf, values=list(CATEGORIES), state="normal",
                                    width=20, font=FONT_NORMAL)
                 cmb.grid(row=s, column=0, sticky="w",
                          padx=PAD_SMALL, pady=1)
-                _bind_combo_typeahead(cmb)
-                cmb.bind("<<ComboboxSelected>>", lambda e: self._recalc())
+                _bind_combo_autocomplete(cmb)
+                cmb.bind("<<ComboboxSelected>>", self._on_cat_changed)
+                cmb.bind("<FocusOut>", self._on_cat_changed)
                 teil_cmbs.append(cmb)
 
                 spn = ttk.Spinbox(lf, from_=0, to=5, width=4,
@@ -514,11 +696,11 @@ class QuizEingabeApp(tk.Tk):
             self._cat_cmbs.append(teil_cmbs)
             self._teil_sum_labels.append(lbl_sum)
 
-    def _build_form_buttons(self):
-        """Aktions-Buttons unter dem Formular."""
-        btn_frame = tk.Frame(self.form_frame, bg=BACKGROUND)
-        btn_frame.grid(row=2, column=0, columnspan=2,
-                       sticky="ew", padx=PAD_MEDIUM, pady=(0, PAD_SMALL))
+    def _build_form_buttons(self, parent):
+        """Aktions-Buttons, fest am unteren Rand des Eingabe-Reiters."""
+        btn_frame = tk.Frame(parent, bg=BACKGROUND)
+        btn_frame.pack(side="bottom", fill="x",
+                       padx=PAD_LARGE, pady=(PAD_SMALL, PAD_SMALL))
 
         self.btn_save = ttk.Button(btn_frame, text="💾 Speichern",
                                    style="Accent.TButton",
@@ -550,6 +732,10 @@ class QuizEingabeApp(tk.Tk):
     # --- 5. Dashboard-Reiter ---
     def _build_dashboard_tab(self, parent):
         """Baut den Dashboard-Reiter: KPI-Karten oben, Charts unten."""
+        import matplotlib
+        matplotlib.use("TkAgg")
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
         # KPI-Karten oben
         self._kpi_frame = tk.Frame(parent, bg=BACKGROUND)
         self._kpi_frame.pack(fill="x", padx=PAD_MEDIUM, pady=(PAD_MEDIUM, PAD_SMALL))
@@ -637,6 +823,8 @@ class QuizEingabeApp(tk.Tk):
     # ------------------------------------------------------------------
     def _refresh_dashboard(self):
         """Aktualisiert KPI-Karten und alle Charts aus self.quiz_nights."""
+        if not getattr(self, "_dashboard_built", False):
+            return
         data = compute_dashboard_data(self.quiz_nights)
         self._refresh_kpis(data["kpis"])
         self._draw_trend(data["trend"])
@@ -847,10 +1035,13 @@ class QuizEingabeApp(tk.Tk):
     # ------------------------------------------------------------------
     def _on_tab_changed(self, event=None):
         """Refresh beim Wechsel auf den Dashboard- oder Erkenntnisse-Reiter."""
-        if not hasattr(self, "_canvas"):
+        if not hasattr(self, "_insights_inner"):
             return
         current = self.notebook.select()
         if str(current) == str(self._tab_dashboard):
+            if not self._dashboard_built:
+                self._build_dashboard_tab(self._tab_dashboard)
+                self._dashboard_built = True
             self._refresh_dashboard()
         elif str(current) == str(self._tab_insights):
             self._refresh_insights()
@@ -859,12 +1050,34 @@ class QuizEingabeApp(tk.Tk):
     # Daten laden / Treeview befuellen
     # ------------------------------------------------------------------
     def _load_data(self):
-        """Laedt Daten aus data.json, befuellt den Treeview."""
+        """Laedt Daten aus data.json, befuellt den Treeview.
+
+        Bei defekter/unlesbarer Datei wird eine Sicherungskopie angelegt,
+        bevor mit leerer Liste gestartet wird — sonst wuerde der naechste
+        Speichervorgang die Historie stillschweigend ueberschreiben."""
         try:
             data = load_data()
             self.quiz_nights = data.get("quiz_nights", [])
         except Exception:
             self.quiz_nights = []
+            if DATA_PATH.exists():
+                zeitstempel = datetime.now().strftime("%Y%m%d-%H%M%S")
+                sicherung = DATA_PATH.with_name(f"data.json.defekt_{zeitstempel}")
+                try:
+                    shutil.copy2(DATA_PATH, sicherung)
+                    messagebox.showwarning(
+                        "Daten nicht lesbar",
+                        f"{DATA_PATH.name} konnte nicht gelesen werden.\n"
+                        f"Eine Sicherung wurde angelegt:\n{sicherung.name}\n\n"
+                        "Die App startet mit einer leeren Liste.",
+                    )
+                except OSError as sicherungs_fehler:
+                    messagebox.showwarning(
+                        "Daten nicht lesbar",
+                        f"{DATA_PATH.name} konnte nicht gelesen werden und "
+                        f"auch keine Sicherung angelegt werden ({sicherungs_fehler}).\n\n"
+                        "Die App startet mit einer leeren Liste.",
+                    )
         self._reload_tree()
         self._refresh_status()
 
@@ -882,8 +1095,8 @@ class QuizEingabeApp(tk.Tk):
                 monat_lang = iso_to_monat_long(datum) if datum else night.get("Monat", "")
             except (ValueError, IndexError):
                 monat_lang = night.get("Monat", "")
-            joker1 = night.get("Joker1", "")
-            joker2 = night.get("Joker2", "")
+            joker1 = night.get("Joker1") or "–"
+            joker2 = night.get("Joker2") or "–"
             sonderrunde = night.get("Sonderrunde_Thema", "")
             gesamt = night.get("Gesamt", "")
             platz = night.get("Platzierung")
@@ -927,6 +1140,33 @@ class QuizEingabeApp(tk.Tk):
     # ------------------------------------------------------------------
     # Live-Berechnung
     # ------------------------------------------------------------------
+    def _on_cat_changed(self, event=None):
+        """Nach Auswahl/Verlassen einer Kategorie-Combobox: neu rechnen und
+        die Auswahllisten der uebrigen Slots aktualisieren."""
+        self._recalc()
+        self._refresh_cat_choices()
+
+    def _refresh_cat_choices(self):
+        """Blendet bereits belegte Kategorien in allen anderen Slots aus.
+
+        Jede der 12 Kategorien wird genau einmal gespielt -- ist sie in einem
+        Slot gewaehlt, verschwindet sie aus den Dropdown-Listen der uebrigen
+        Slots. Der eigene Wert bleibt in der eigenen Liste erhalten.
+        """
+        used = set()
+        for t in range(4):
+            for s in range(3):
+                v = self._cat_cmbs[t][s].get().strip()
+                if v in CATEGORIES:
+                    used.add(v)
+        for t in range(4):
+            for s in range(3):
+                cmb = self._cat_cmbs[t][s]
+                own = cmb.get().strip()
+                avail = [c for c in CATEGORIES if c not in used or c == own]
+                cmb._full_choices = avail
+                cmb.configure(values=avail)
+
     def _recalc(self, *args):
         """Neuberechnung von Summen, Bonus, Gesamt und Pct nach Aenderungen."""
         teil_sums = []
@@ -946,8 +1186,8 @@ class QuizEingabeApp(tk.Tk):
             self._teil_sum_labels[t].configure(
                 text=f"Summe Teil {t + 1}: {s}")
 
-        joker1 = self.cmb_joker1.get()
-        joker2 = self.cmb_joker2.get()
+        joker1 = normalize_joker(self.cmb_joker1.get())
+        joker2 = normalize_joker(self.cmb_joker2.get())
         bonus = compute_bonus(joker1, joker2, cat_scores)
 
         gesamt = sum(teil_sums) + bonus
@@ -972,17 +1212,18 @@ class QuizEingabeApp(tk.Tk):
             except Exception:
                 pass
 
-        # Combobox readonly bleibt beim Aktivieren erhalten
+        # Monat bleibt Auswahl (readonly); Joker sind tippbar (normal).
         if state == "normal":
-            for cmb in (self.cmb_monat, self.cmb_joker1, self.cmb_joker2):
-                cmb.configure(state="readonly")
+            self.cmb_monat.configure(state="readonly")
+            self.cmb_joker1.configure(state="normal")
+            self.cmb_joker2.configure(state="normal")
 
-        # Teil-Widgets
+        # Teil-Widgets: Kategorie-Comboboxen sind tippbar (normal)
         for t in range(4):
             for s in range(3):
                 try:
                     self._cat_cmbs[t][s].configure(
-                        state="readonly" if state == "normal" else "disabled")
+                        state="normal" if state == "normal" else "disabled")
                 except Exception:
                     pass
                 # Spinbox fuer Punkte
@@ -1020,6 +1261,7 @@ class QuizEingabeApp(tk.Tk):
                 self._cat_cmbs[t][s].set("")
                 self._punkt_vars[t][s].set(0)
 
+        self._refresh_cat_choices()
         self._recalc()
 
     # ------------------------------------------------------------------
@@ -1038,8 +1280,10 @@ class QuizEingabeApp(tk.Tk):
             self.spn_jahr.set(now.year)
             self.cmb_monat.set(GERMAN_MONTHS[now.month - 1])
 
-        self.cmb_joker1.set(night.get("Joker1", "") or "")
-        self.cmb_joker2.set(night.get("Joker2", "") or "")
+        # Kein Joker gespeichert -> '(keiner)' anzeigen (nicht leer, sonst
+        # meldet die Pruefung beim Speichern einen fehlenden Joker).
+        self.cmb_joker1.set(night.get("Joker1") or JOKER_KEINER)
+        self.cmb_joker2.set(night.get("Joker2") or JOKER_KEINER)
 
         self.ent_sonderrunde.delete(0, "end")
         self.ent_sonderrunde.insert(0, night.get("Sonderrunde_Thema", "") or "")
@@ -1065,6 +1309,7 @@ class QuizEingabeApp(tk.Tk):
             self._cat_cmbs[t][s].set(kat if kat else "")
             self._punkt_vars[t][s].set(pts if pts else 0)
 
+        self._refresh_cat_choices()
         self._recalc()
 
     # ------------------------------------------------------------------

@@ -19,3 +19,10 @@ venv/
 # OS
 Thumbs.db
 .DS_Store
+
+# Internes -- dieses Repo ist OEFFENTLICH (Streamlit-Cloud-Deployment).
+# Projektnotizen und Werkzeug-Einstellungen tragen interne Pfade und
+# Firmenbezuege; sie bleiben lokal.
+.claude/
+CLAUDE.md
+*.e1std

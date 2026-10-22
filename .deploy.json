@@ -1,5 +1,5 @@
 {
-  "build_bat": "build.bat",
+  "build_bat": "build_exe.bat",
   "exe_name": "Quiz.exe",
   "extras": [],
   "deploy_target_override": null,
