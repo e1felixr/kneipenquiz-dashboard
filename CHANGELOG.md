@@ -2,6 +2,29 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
+## v0.9.0 (22.10.2026, 14:49 Uhr)
+
+### Neu
+
+- **Erkenntnisse jetzt auch im Web-Dashboard** — acht Abschnitte mit dreißig abgeleiteten Beobachtungen (Form-Trend, verlässliche Pfeiler, Wackel-Kandidaten, Joker-Bilanz und -Empfehlung, Sonderrunden-Muster, letzter Abend, Ausblick). Sie stammen aus derselben `compute_insights()`, die den Erkenntnisse-Reiter der Eingabe-GUI speist — eine Quelle, zwei Darstellungen, keine doppelte Pflege. Die Abschnitte verteilen sich auf zwei Spalten nach Länge, nicht abwechselnd, damit keine Spalte deutlich länger gerät als die andere.
+- **Sonderrunden nach Themenart eingefärbt** — die Balken tragen nun die Art des Themas statt noch einmal die Punktzahl, die ihre Länge ohnehin zeigt. Damit springt das deutlichste Muster im Datensatz ins Auge: Klassische Bildungsthemen (Dürer, Sixtinische Kapelle, Erdmond) brachten dreimal null Punkte, Popkultur im Mittel vier von fünf. Die Einteilung kommt aus `_classify_theme()` in `quiz_data.py`.
+
+### Verbessert
+
+- **Kennzahl „Ø Feldposition" statt „Ø Platzierung"** — die alte Angabe von 7,8 bedeutete nichts, weil die Teamzahl zwischen 10 und 16 schwankt: Platz 7 von 16 ist oberes Drittel, Platz 10 von 10 ist der letzte. Die Karte zeigt jetzt die Position im Feld in Prozent — 0 % wäre der Sieg, 100 % der letzte Platz. Beim derzeitigen Stand sind es 55 %, also eine Handbreit unter der Mitte; die alte Angabe steht als Unterzeile daneben.
+- **Kategorie-Entwicklung endlich verfolgbar** — das gestapelte Diagramm sortierte die Kategorien in jedem Monat neu, womit jede von ihnen monatlich die Position im Stapel wechselte und sich keine über die Zeit verfolgen ließ — ausgerechnet das, wofür das Diagramm da ist. Reihenfolge und Farbe stehen nun über alle Monate fest, die stärkste Kategorie unten, dazu eine Legende.
+- **Rohdaten in einem Aufklapper** — die Tabelle mit dreizehn Spalten ist auf einem Telefon nicht zu lesen und schob dort alles Wesentliche nach unten. Sie bleibt einen Klick entfernt.
+
+### Behoben
+
+- **Auf dem Telefon wurde jedes Diagramm beschnitten** — die mobile Gestaltung deckelte alle Diagramme auf 300 Pixel Höhe, während das niedrigste 400 und die höchsten 500 Pixel messen. Betroffen war ausnahmslos jedes der sieben. Der Deckel ist fort; die Höhen stehen jetzt an einer Stelle als `CHART_H` und `CHART_H_TALL`, statt siebenmal einzeln im Code.
+
+### Intern
+
+- **Tabelle „Punkte pro Kategorie und Monat" entfernt** — sie zeigte dieselbe Matrix aus elf Kategorien und zehn Monaten wie die Heatmap darunter, nur als Ziffern statt als Muster. Die Heatmap bleibt.
+- **Fortschrittsleiste der Gesamtpunkte misst gegen 70** statt gegen 50 — erreichbar sind 60 Punkte aus den Teilen 1 bis 4 plus 10 Bonuspunkte; bei einem künftigen Abend über 50 wäre die Leiste sonst am Anschlag gestanden.
+- Verifiziert mit `streamlit.testing.v1.AppTest`: Das Skript läuft vollständig durch, keine Ausnahme, fünf Abschnitte, ein Aufklapper, eine Tabelle.
+
 ## v0.8.3 (22.10.2026, 14:36 Uhr)
 
 ### Verbessert

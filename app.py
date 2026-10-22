@@ -133,6 +133,34 @@ st.markdown("""
         margin-bottom: 0.5rem;
     }
 
+    /* Erkenntnisse */
+    .insight-card {
+        background: #ffffff;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 0.8rem;
+    }
+    .insight-titel {
+        color: #2c3e50;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+    }
+    .insight-lead {
+        color: #6b7280;
+        font-size: 0.82rem;
+        margin-bottom: 0.6rem;
+    }
+    .insight-item {
+        color: #374151;
+        font-size: 0.85rem;
+        line-height: 1.45;
+        border-left: 3px solid #d1d5db;
+        padding: 0.15rem 0 0.15rem 0.7rem;
+        margin-bottom: 0.5rem;
+    }
+
     /* Mobile responsive */
     @media (max-width: 768px) {
         .dashboard-header h1 {
@@ -158,10 +186,10 @@ st.markdown("""
         .section-title {
             font-size: 1.1rem;
         }
-        /* Smaller charts on mobile */
-        .stPlotlyChart {
-            max-height: 300px;
-        }
+        /* KEIN max-height auf .stPlotlyChart: Der frühere Deckel von 300px
+           lag unter der Höhe jedes einzelnen Diagramms (400 bis 500) und
+           beschnitt sie damit ausnahmslos. Plotly skaliert ohnehin über die
+           Breite; die Höhe steht in CHART_H / CHART_H_TALL. */
         /* Force Streamlit columns to stack vertically */
         [data-testid="stHorizontalBlock"] {
             flex-direction: column !important;
@@ -202,6 +230,17 @@ def load_data(path: str, mtime: float):
 df_cat, months, quiz_nights = load_data(str(DATA_PATH), DATA_PATH.stat().st_mtime)
 n_nights = len(quiz_nights)
 
+# quiz_data trägt die Themen-Klassifikation (_classify_theme) und die
+# abgeleiteten Beobachtungen (compute_insights), die auch der Tk-Reiter nutzt
+# -- beides hier einbinden statt ein zweites Mal pflegen. Reines Standard-
+# Python ohne GUI-Abhängigkeit, in der Streamlit Cloud also ladbar. Schlägt
+# der Import wider Erwarten fehl, fallen nur diese beiden Zugaben aus statt
+# des ganzen Dashboards.
+try:
+    import quiz_data as qd
+except Exception:  # pragma: no cover - Deployment-Absicherung
+    qd = None
+
 # ---------------------------------------------------------------------------
 # Plotly theme defaults
 # ---------------------------------------------------------------------------
@@ -215,6 +254,11 @@ PLOTLY_LAYOUT = dict(
 
 # Disable zoom/pan on touch devices to allow smooth scrolling
 PLOTLY_CONFIG = {"staticPlot": True}
+
+# Diagrammhöhen an einer Stelle: CHART_H für den Regelfall, CHART_H_TALL für
+# Diagramme mit einer Zeile je Kategorie oder Abend (elf bzw. zehn Zeilen).
+CHART_H = 420
+CHART_H_TALL = 500
 
 # Gedeckte aber klar unterscheidbare Farben – 11 Kategorien
 CAT_COLORS = [
@@ -257,6 +301,15 @@ best_placement_q = min(
 )
 avg_placement = np.mean(placements) if placements else 0
 
+# Feldposition statt absoluter Platzierung: Die Teamzahl schwankt zwischen
+# 10 und 16, damit bedeutet derselbe Platz je Abend etwas anderes -- Platz 7
+# von 16 ist oberes Drittel, Platz 10 von 10 ist der letzte. 0 % = Sieg,
+# 100 % = letzter Platz.
+feldpos = [(q["Platzierung"] - 1) / (q["Von"] - 1) * 100
+           for q in quiz_nights
+           if q["Platzierung"] is not None and q["Von"] and q["Von"] > 1]
+avg_feldpos = np.mean(feldpos) if feldpos else 0
+
 # Trend: last quiz vs previous quiz
 prev_pct = quiz_nights[-2]["Pct_richtig"]
 last_pct = quiz_nights[-1]["Pct_richtig"]
@@ -271,8 +324,9 @@ kpi_data = [
      f"Median {_de(med_points, trim=True)} · Spanne {min(night_points)}–{max(night_points)}", ""),
     ("Ø Richtig", f"{avg_pct:.0%}", f"von max. 60 Fragen", ""),
     ("Beste Platzierung", f"{best_placement}.", f"{best_placement_q['Monat']} ({best_placement_q['Von']} Teams)", ""),
-    ("Ø Platzierung", _de(avg_placement),
-     f"bei Ø {_de(np.mean([q['Von'] for q in quiz_nights if q['Von']]))} Teams", ""),
+    ("Ø Feldposition", f"{avg_feldpos:.0f} %",
+     f"Ø Platz {_de(avg_placement)} bei {_de(np.mean([q['Von'] for q in quiz_nights if q['Von']]))} Teams",
+     "" if avg_feldpos < 50 else "bad"),
     ("Trend Richtig-Quote", f"{trend_arrow} {abs(trend_delta):.0%}",
      f"vs. {quiz_nights[-2]['Monat']}", trend_class),
 ]
@@ -335,9 +389,10 @@ for col, (label, value, sub, cls) in zip(cols2, kpi_data2):
     </div>
     """, unsafe_allow_html=True)
 
-# --- Detail tables ---
-st.markdown('<div class="section-title">Rohdaten</div>', unsafe_allow_html=True)
-
+# --- Rohdaten ---
+# Zugeklappt: dreizehn Spalten sind auf einem Telefon nicht zu lesen und
+# schieben auf kleinen Schirmen alles Wesentliche nach unten. Wer sie
+# braucht, klappt sie auf.
 detail_rows_data = []
 for q in quiz_nights:
     row = {
@@ -364,42 +419,34 @@ def centered(col_cfg):
     col_cfg["alignment"] = "center"
     return col_cfg
 
-st.dataframe(
-    df_detail,
-    width='content',
-    hide_index=True,
-    column_config={
-        "Teil 1": centered(st.column_config.NumberColumn("Teil 1", format="%d")),
-        "Teil 2": centered(st.column_config.NumberColumn("Teil 2", format="%d")),
-        "Teil 3": centered(st.column_config.NumberColumn("Teil 3", format="%d")),
-        "Teil 4": centered(st.column_config.NumberColumn("Teil 4", format="%d")),
-        "Bonus": centered(st.column_config.NumberColumn("Bonus", format="%d")),
-        "Gesamt": st.column_config.ProgressColumn(
-            "Gesamt", min_value=0, max_value=50, format="%d Pkt.",
-        ),
-        "% richtig": centered(st.column_config.NumberColumn("% richtig", format="%.0f %%")),
-        "Platz": centered(st.column_config.NumberColumn("Platz", format="%d.")),
-        "von": centered(st.column_config.NumberColumn("von", format="%d")),
-    },
-)
+with st.expander(f"Rohdaten aller {n_nights} Quizabende"):
+    st.dataframe(
+        df_detail,
+        width='content',
+        hide_index=True,
+        column_config={
+            "Teil 1": centered(st.column_config.NumberColumn("Teil 1", format="%d")),
+            "Teil 2": centered(st.column_config.NumberColumn("Teil 2", format="%d")),
+            "Teil 3": centered(st.column_config.NumberColumn("Teil 3", format="%d")),
+            "Teil 4": centered(st.column_config.NumberColumn("Teil 4", format="%d")),
+            "Bonus": centered(st.column_config.NumberColumn("Bonus", format="%d")),
+            "Gesamt": st.column_config.ProgressColumn(
+                "Gesamt", min_value=0, max_value=70, format="%d Pkt.",
+            ),
+            "% richtig": centered(st.column_config.NumberColumn("% richtig", format="%.0f %%")),
+            "Platz": centered(st.column_config.NumberColumn("Platz", format="%d.")),
+            "von": centered(st.column_config.NumberColumn("von", format="%d")),
+        },
+    )
+    st.markdown(
+        '<p class="info-text">Teile 1 bis 4 je max. 15 Punkte (60 Fragen), '
+        'Bonus max. 10 &ndash; die Fortschrittsleiste misst gegen 70.</p>',
+        unsafe_allow_html=True,
+    )
 
-st.markdown("**Punkte pro Kategorie und Monat:**")
-df_show = df_cat[["Kategorie", "Platz", "Mittelwert"] + months].copy()
-df_show["Mittelwert"] = df_show["Mittelwert"].round(2)
-df_show = df_show.sort_values("Platz")
-
-st.dataframe(
-    df_show,
-    width='content',
-    hide_index=True,
-    column_config={
-        "Platz": centered(st.column_config.NumberColumn("Platz", format="%d")),
-        "Mittelwert": st.column_config.ProgressColumn(
-            "Ø", min_value=0, max_value=5, format="%.1f",
-        ),
-        **{m: centered(st.column_config.NumberColumn(m, format="%d")) for m in months},
-    },
-)
+# Die frühere Tabelle "Punkte pro Kategorie und Monat" stand hier: dieselbe
+# Matrix aus elf Kategorien mal zehn Monaten, die auch die Heatmap unten
+# zeigt -- einmal als Ziffern, einmal als Muster. Die Heatmap bleibt.
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -476,7 +523,7 @@ with st.container():
             showgrid=False,
         ),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-        height=420,
+        height=CHART_H,
         bargap=0.4,
     )
     st.plotly_chart(fig_trend, width='content', config=PLOTLY_CONFIG)
@@ -520,7 +567,7 @@ with col1:
         title=dict(text="Kategorie-Ranking (Ø Punkte)", font=dict(size=16)),
         xaxis=dict(range=[0, 4.5], gridcolor="rgba(0,0,0,0.05)", title="Ø Punkte (max. 5)"),
         yaxis=dict(tickfont=dict(size=12)),
-        height=420,
+        height=CHART_H,
     )
     st.plotly_chart(fig_rank, width='content', config=PLOTLY_CONFIG)
 
@@ -549,7 +596,7 @@ with col2:
         title=dict(text="Punkte-Heatmap (Kategorien x Monate)", font=dict(size=16)),
         xaxis=dict(tickfont=dict(size=12)),
         yaxis=dict(tickfont=dict(size=11)),
-        height=420,
+        height=CHART_H,
     )
     st.plotly_chart(fig_heat, width='content', config=PLOTLY_CONFIG)
 
@@ -575,67 +622,60 @@ CAT_SHORT = {
     "Wissensch./Natur": "Wissen.",
 }
 
+# Eine Spur je Kategorie, Reihenfolge und Farbe über alle Monate FEST.
+# Vorher wurde der Stapel in jedem Monat neu nach Punktzahl sortiert: Jede
+# Kategorie wechselte damit monatlich ihre Position, und genau das machte
+# eine Entwicklung -- den Zweck des Diagramms -- unverfolgbar. Fest
+# gestapelt behält jede Kategorie ihr Band, das über die Monate dicker
+# oder dünner wird.
 df_dev = df_cat[df_cat["Kategorie"] != "Sonderrunde"].copy()
 df_dev = df_dev.sort_values("Mittelwert", ascending=False)
 all_cats = df_dev["Kategorie"].tolist()
 cat_color_map = {cat: CAT_COLORS[i % len(CAT_COLORS)] for i, cat in enumerate(all_cats)}
-bar_half = 0.4
 fig_dev2 = go.Figure()
 
-# For each month, sort categories by their score
-sorted_month_data = {}
-for m in months:
-    cat_vals = [(cat, df_cat[df_cat["Kategorie"] == cat].iloc[0][m]) for cat in all_cats]
-    cat_vals.sort(key=lambda x: x[1], reverse=True)  # best at bottom
-    sorted_month_data[m] = cat_vals
-
-# We need to add one trace per "slot" (position in stack, 0=bottom to 10=top)
-# Each slot can have a different category per month
-n_cats = len(all_cats)
-cumulative2 = {m: 0 for m in months}
-
-for slot in range(n_cats):
-    slot_vals = []
-    slot_cats = []
-    slot_colors = []
-    for m in months:
-        cat, val = sorted_month_data[m][slot]
-        slot_vals.append(val)
-        slot_cats.append(cat)
-        slot_colors.append(cat_color_map[cat])
-
-    short_labels = [CAT_SHORT.get(c, c) if v >= 2 else "" for c, v in zip(slot_cats, slot_vals)]
-    hover_labels = [f"{m}: {c} {v}/5" for m, c, v in zip(months, slot_cats, slot_vals)]
-
-    for j, m in enumerate(months):
-        cumulative2[m] += slot_vals[j]
-
+# Plotly stapelt die zuerst hinzugefügte Spur unten: umkehren stellt die
+# stärkste Kategorie ans untere Ende.
+for cat in reversed(all_cats):
+    werte = [int(df_cat[df_cat["Kategorie"] == cat].iloc[0][m]) for m in months]
     fig_dev2.add_trace(go.Bar(
         x=months,
-        y=slot_vals,
-        name=f"Slot {slot}",
-        text=short_labels,
+        y=werte,
+        name=CAT_SHORT.get(cat, cat),
+        legendgroup=cat,
+        text=[CAT_SHORT.get(cat, cat) if v >= 3 else "" for v in werte],
         textposition="inside",
         insidetextanchor="middle",
         textfont=dict(size=10, color="#ffffff"),
         marker=dict(
-            color=slot_colors,
+            color=cat_color_map[cat],
             line=dict(width=0.5, color="#ffffff"),
         ),
-        hovertext=hover_labels,
-        hovertemplate="%{hovertext}<extra></extra>",
+        hovertemplate=f"%{{x}}: {cat} %{{y}}/5<extra></extra>",
     ))
 
 fig_dev2.update_layout(
     **PLOTLY_LAYOUT,
-    title=dict(text="Punkte pro Kategorie (sortiert, beste unten)", font=dict(size=16)),
+    title=dict(text="Punkte je Kategorie und Monat (feste Reihenfolge, stärkste unten)",
+               font=dict(size=16)),
     barmode="stack",
-    yaxis=dict(title="Gesamtpunkte", gridcolor="rgba(0,0,0,0.05)"),
+    yaxis=dict(title="Punkte (ohne Sonderrunde und Bonus)",
+               gridcolor="rgba(0,0,0,0.05)"),
     xaxis=dict(gridcolor="rgba(0,0,0,0.05)"),
-    showlegend=False,
-    height=480,
+    showlegend=True,
+    legend=dict(orientation="h", yanchor="top", y=-0.12,
+                xanchor="center", x=0.5, font=dict(size=10),
+                traceorder="reversed"),
+    height=CHART_H_TALL,
 )
 st.plotly_chart(fig_dev2, width='content', config=PLOTLY_CONFIG)
+st.markdown(
+    '<p class="info-text">Jede Kategorie behält Farbe und Position über alle '
+    'Monate &ndash; ihr Band lässt sich so von links nach rechts verfolgen. '
+    'Die Gesamthöhe ist die Punktsumme der elf Kategorien ohne Sonderrunde '
+    'und ohne Joker-Bonus.</p>',
+    unsafe_allow_html=True,
+)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -656,7 +696,13 @@ with col1:
     sonder_scores = [q["cat_scores"].get("Sonderrunde", 0) for q in quiz_nights]
     sonder_labels = [f"{t}<br>({q['Monat']})" for t, q in zip(sonder_themen, quiz_nights)]
 
-    sonder_colors = ["#2171b5" if s >= 4 else "#6baed6" if s >= 2 else "#c6dbef" for s in sonder_scores]
+    # Farbe nach Themenart statt nach Punktzahl: Die Punktzahl steht bereits
+    # als Balkenlänge da, die Themenart dagegen ist die eigentliche Erkenntnis
+    # -- klassische Themen gingen bislang ausnahmslos leer aus.
+    ART_FARBE = {"klassisch": "#9b4d4d", "popkultur": "#2171b5", "sonst": "#bab0ac"}
+    ART_NAME = {"klassisch": "klassisch", "popkultur": "Popkultur", "sonst": "übrige"}
+    sonder_arten = [qd._classify_theme(t) if qd else "sonst" for t in sonder_themen]
+    sonder_colors = [ART_FARBE.get(a, "#bab0ac") for a in sonder_arten]
 
     # Plotly zeichnet das erste Element unten: umkehren stellt den
     # aeltesten Abend nach oben.
@@ -678,10 +724,26 @@ with col1:
         xaxis=dict(range=[0, 5.5], tickvals=[0, 1, 2, 3, 4, 5],
                    gridcolor="rgba(0,0,0,0.05)", title="Punkte (max. 5)"),
         yaxis=dict(tickfont=dict(size=10), automargin=True),
-        height=500,
+        height=CHART_H_TALL,
         bargap=0.25,
     )
     st.plotly_chart(fig_sonder, width='content', config=PLOTLY_CONFIG)
+
+    # Nur die Farblegende: Was die Themenarten im Mittel bringen und was
+    # daraus folgt, steht unten unter "Erkenntnisse" -- dieselbe Aussage
+    # zweimal auf einer Seite wäre genau die Redundanz, die hier sonst
+    # ausgeräumt wurde.
+    _legende = [
+        f'<span style="color:{ART_FARBE[_a]};">&#9632;</span> {ART_NAME[_a]}'
+        for _a in ("popkultur", "sonst", "klassisch")
+        if _a in set(sonder_arten)
+    ]
+    st.markdown(
+        '<p class="info-text">Farbe = Themenart: '
+        + ' &nbsp;·&nbsp; '.join(_legende)
+        + '</p>',
+        unsafe_allow_html=True,
+    )
 
 with col2:
     # Joker analysis – doubles score only if >= 3 correct
@@ -716,7 +778,7 @@ with col2:
         yaxis=dict(range=[0, 11], gridcolor="rgba(0,0,0,0.05)", title="Bonuspunkte",
                    dtick=2),
         showlegend=False,
-        height=400,
+        height=CHART_H,
         bargap=0.3,
     )
     st.plotly_chart(fig_joker, width='content', config=PLOTLY_CONFIG)
@@ -800,7 +862,7 @@ with col3:
                    range=[-0.2, 5.9], tickvals=[0, 1, 2, 3, 4, 5],
                    gridcolor="rgba(0,0,0,0.05)"),
         yaxis=dict(tickfont=dict(size=11), automargin=True),
-        height=500,
+        height=CHART_H_TALL,
     )
     st.plotly_chart(fig_cons, width='content', config=PLOTLY_CONFIG)
     st.markdown(
@@ -814,6 +876,45 @@ with col3:
     )
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# ERKENNTNISSE
+# ---------------------------------------------------------------------------
+# Dieselben abgeleiteten Beobachtungen, die der Erkenntnisse-Reiter der
+# Eingabe-GUI zeigt -- compute_insights() ist die eine Quelle dafür, hier
+# wird sie nur anders dargestellt.
+_sektionen = []
+if qd is not None:
+    try:
+        _sektionen = qd.compute_insights(quiz_nights)
+    except Exception:  # pragma: no cover - Deployment-Absicherung
+        _sektionen = []
+
+if _sektionen:
+    st.markdown('<div class="section-title">Erkenntnisse</div>', unsafe_allow_html=True)
+    KIND_FARBE = {"info": "#2171b5", "tipp": "#4b7c6f", "warnung": "#9b4d4d"}
+    _spalten = st.columns(2)
+    # Nicht abwechselnd verteilen: Die Sektionen sind verschieden lang (drei
+    # bis neun Beobachtungen), und streng alternierend geriete eine Spalte
+    # deutlich länger als die andere. Jede Sektion geht in die derzeit
+    # kürzere Spalte.
+    _fuellstand = [0, 0]
+    for _sek in sorted(_sektionen, key=lambda s: -len(s.get("items", []))):
+        _i = 0 if _fuellstand[0] <= _fuellstand[1] else 1
+        _fuellstand[_i] += len(_sek.get("items", [])) + 2
+        teile = [f'<div class="insight-card">'
+                 f'<div class="insight-titel">{_sek.get("titel", "")}</div>']
+        if _sek.get("lead"):
+            teile.append(f'<div class="insight-lead">{_sek["lead"]}</div>')
+        for _it in _sek.get("items", []):
+            _farbe = KIND_FARBE.get(_it.get("kind"), "#d1d5db")
+            teile.append(f'<div class="insight-item" style="border-left-color:{_farbe};">'
+                         f'{_it.get("text", "")}</div>')
+        teile.append("</div>")
+        _spalten[_i % 2].markdown("".join(teile), unsafe_allow_html=True)
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
