@@ -1,5 +1,18 @@
-streamlit>=1.30.0
-plotly>=5.18.0
-pandas>=2.0.0
-numpy>=1.24.0
-matplotlib>=3.7.0
+# Abhaengigkeiten des Streamlit-Dashboards (app.py).
+#
+# Die Streamlit Cloud loest diese Datei bei JEDEM Build neu auf und zieht
+# damit stets die neuesten erlaubten Fassungen. Erprobt wurde am 22.10.2026
+# gegen streamlit 1.66.1, plotly 7.1.0, pandas 3.1.0 und numpy 2.5.4
+# (streamlit.testing.v1.AppTest, keine Ausnahme).
+#
+# Die Untergrenzen bleiben niedrig, damit ein lokales Setup nichts
+# nachziehen muss -- Felix' Umgebung traegt plotly 5.18, und numpy wie
+# matplotlib haengen dort an den EXE-Bauten der uebrigen Werkzeuge.
+# Neu sind die Obergrenzen je Hauptversion: Ohne sie koennte ein Sprung auf
+# plotly 8 oder pandas 4 das Deployment brechen, ohne dass lokal etwas
+# auffaellt.
+streamlit>=1.30,<2
+plotly>=5.18,<8
+pandas>=2.0,<4
+numpy>=1.24,<3
+matplotlib>=3.7,<4

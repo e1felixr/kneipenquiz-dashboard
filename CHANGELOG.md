@@ -2,6 +2,17 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
+## v0.9.1 (22.10.2026, 14:59 Uhr)
+
+### Verbessert
+
+- **Heatmap ohne Farbleiste** — sie kennt nur sechs mögliche Werte, und jeder steht als Ziffer in seiner Zelle; eine Skala daneben erklärte nichts, was nicht schon dasteht, und nahm der Heatmap Breite, die ihr in einer halben Spalte fehlt. Der Titel nennt den Wertebereich jetzt selbst: „Punkte je Kategorie und Monat (0 bis 5)".
+
+### Intern
+
+- **Versionsschranken in `requirements.txt`** — die Streamlit Cloud löst die Datei bei jedem Build neu auf und zog bislang ohne Obergrenze stets die neuesten Fassungen. Lokal läuft plotly 5.18, im Deployment 7.1 — zwei Hauptversionen Unterschied, von denen keine Prüfung etwas merkte. Die Untergrenzen bleiben niedrig, damit ein lokales Setup nichts nachziehen muss; neu sind Obergrenzen je Hauptversion, damit ein Sprung auf plotly 8 oder pandas 4 das Deployment nicht unbemerkt bricht.
+- **Gegen die Cloud-Fassungen erprobt** — in einer gesonderten Wegwerf-Umgebung mit streamlit 1.66.1, plotly 7.1.0, pandas 3.1.0 und numpy 2.5.4 läuft das Dashboard ohne Ausnahme durch, mit denselben Elementen wie lokal.
+
 ## v0.9.0 (22.10.2026, 14:49 Uhr)
 
 ### Neu

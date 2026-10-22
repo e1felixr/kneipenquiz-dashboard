@@ -589,13 +589,17 @@ with col2:
         texttemplate="%{text}",
         textfont=dict(size=14, color="#374151"),
         hovertemplate="%{y} – %{x}: %{z}/5<extra></extra>",
-        colorbar=dict(title="Punkte", tickvals=[0, 1, 2, 3, 4, 5]),
+        # Keine Farbleiste: Es gibt nur sechs mögliche Werte (0 bis 5), und
+        # jeder steht als Ziffer in seiner Zelle. Eine Skala erklärt damit
+        # nichts, was nicht schon dasteht -- sie kostete nur Breite, die der
+        # Heatmap in einer halben Spalte fehlt.
+        showscale=False,
     ))
     fig_heat.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text="Punkte-Heatmap (Kategorien x Monate)", font=dict(size=16)),
+        title=dict(text="Punkte je Kategorie und Monat (0 bis 5)", font=dict(size=16)),
         xaxis=dict(tickfont=dict(size=12)),
-        yaxis=dict(tickfont=dict(size=11)),
+        yaxis=dict(tickfont=dict(size=11), automargin=True),
         height=CHART_H,
     )
     st.plotly_chart(fig_heat, width='content', config=PLOTLY_CONFIG)

@@ -228,7 +228,7 @@ PAD_LARGE = 15
 PAD_MEDIUM = 10
 PAD_SMALL = 5
 
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 
 # Farbpalette fuer Kategorien (parallel zu app.py)
 CAT_COLORS = [
