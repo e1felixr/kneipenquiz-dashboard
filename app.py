@@ -404,7 +404,12 @@ for q in quiz_nights:
         "Teil 2": q["Teil2"],
         "Teil 3": q["Teil3"],
         "Teil 4": q["Teil4"],
-        "Bonus": q["Bonus"],
+        # Der Wert entsteht ausschliesslich aus den Jokern (compute_bonus:
+        # Verdopplung der Joker-Kategorie ab 3 Punkten). "Bonus" allein las
+        # sich wie eine eigene Bonusrunde. Nicht bloss "Joker", weil daneben
+        # schon "Joker 1" und "Joker 2" stehen -- die tragen Kategorien,
+        # diese Spalte Punkte.
+        "Joker-Pkt.": q["Bonus"],
         "Gesamt": q["Gesamt"],
         "% richtig": round(q["Pct_richtig"] * 100),
         "Platz": q["Platzierung"],
@@ -429,7 +434,7 @@ with st.expander(f"Rohdaten aller {n_nights} Quizabende"):
             "Teil 2": centered(st.column_config.NumberColumn("Teil 2", format="%d")),
             "Teil 3": centered(st.column_config.NumberColumn("Teil 3", format="%d")),
             "Teil 4": centered(st.column_config.NumberColumn("Teil 4", format="%d")),
-            "Bonus": centered(st.column_config.NumberColumn("Bonus", format="%d")),
+            "Joker-Pkt.": centered(st.column_config.NumberColumn("Joker-Pkt.", format="%d")),
             "Gesamt": st.column_config.ProgressColumn(
                 "Gesamt", min_value=0, max_value=70, format="%d Pkt.",
             ),
@@ -440,7 +445,9 @@ with st.expander(f"Rohdaten aller {n_nights} Quizabende"):
     )
     st.markdown(
         '<p class="info-text">Teile 1 bis 4 je max. 15 Punkte (60 Fragen), '
-        'Bonus max. 10 &ndash; die Fortschrittsleiste misst gegen 70.</p>',
+        'Joker-Punkte max. 10 (zwei Joker à 5) &ndash; die Fortschrittsleiste '
+        'misst gegen 70. Ein Joker verdoppelt seine Kategorie, aber erst ab '
+        '3 Richtigen; darunter verfällt er.</p>',
         unsafe_allow_html=True,
     )
 
@@ -663,7 +670,7 @@ fig_dev2.update_layout(
     title=dict(text="Punkte je Kategorie und Monat (feste Reihenfolge, stärkste unten)",
                font=dict(size=16)),
     barmode="stack",
-    yaxis=dict(title="Punkte (ohne Sonderrunde und Bonus)",
+    yaxis=dict(title="Punkte (ohne Sonderrunde und Joker)",
                gridcolor="rgba(0,0,0,0.05)"),
     xaxis=dict(gridcolor="rgba(0,0,0,0.05)"),
     showlegend=True,
@@ -677,7 +684,7 @@ st.markdown(
     '<p class="info-text">Jede Kategorie behält Farbe und Position über alle '
     'Monate &ndash; ihr Band lässt sich so von links nach rechts verfolgen. '
     'Die Gesamthöhe ist die Punktsumme der elf Kategorien ohne Sonderrunde '
-    'und ohne Joker-Bonus.</p>',
+    'und ohne Joker-Punkte.</p>',
     unsafe_allow_html=True,
 )
 
@@ -779,7 +786,7 @@ with col2:
         **PLOTLY_LAYOUT,
         title=dict(text=f"Joker-Bonus (Ø {avg_joker_pct:.0%} von max. {max_bonus})",
                    font=dict(size=16)),
-        yaxis=dict(range=[0, 11], gridcolor="rgba(0,0,0,0.05)", title="Bonuspunkte",
+        yaxis=dict(range=[0, 11], gridcolor="rgba(0,0,0,0.05)", title="Joker-Punkte",
                    dtick=2),
         showlegend=False,
         height=CHART_H,

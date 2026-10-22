@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
+## v0.9.2 (22.10.2026, 15:03 Uhr)
+
+### Verbessert
+
+- **Spalte „Bonus" heißt jetzt „Joker-Pkt."** — der Wert entsteht ausschließlich aus den Jokern (Verdopplung der Joker-Kategorie, sofern dort mindestens 3 Punkte fielen); „Bonus" las sich dagegen wie eine eigene Bonusrunde. Nicht einfach „Joker", weil daneben bereits „Joker 1" und „Joker 2" stehen — die tragen Kategorien, diese Spalte Punkte. Die Fußzeile erklärt die Regel nun mit: zwei Joker à 5 Punkte, Verdopplung erst ab 3 Richtigen, darunter verfällt der Joker.
+- **Kein nacktes „Bonus" mehr im Dashboard** — auch die Achsenbeschriftungen des gestapelten Kategorie-Diagramms und der Joker-Auswertung sprechen von Joker-Punkten. Die Eingabe-GUI nannte es mit „Bonus (aus Joker)" von jeher richtig.
+
 ## v0.9.1 (22.10.2026, 14:59 Uhr)
 
 ### Verbessert
