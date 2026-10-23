@@ -607,9 +607,14 @@ def compute_insights(quiz_nights):
                             f"Ø {_de(p_first, 1)} früher, Ø {_de(p_last, 1)} zuletzt."})
 
     last_night = sorted_nights[-1]
+    # Beide Groessen benennen: "Gesamt" enthaelt die Joker-Punkte, die Quote
+    # "Pct_richtig" nicht. Bis hierher standen sie unbeschriftet im selben
+    # Satz -- wer "38 Punkte (56 %)" las, musste annehmen, die 56 Prozent
+    # bezoegen sich auf die 38.
     items.append({"kind": "info",
         "text": f"Jüngster Abend ({last_night['Monat']}): "
-                f"{last_night['Gesamt']} Punkte ({last_night['Pct_richtig']:.0%}), "
+                f"{last_night['Gesamt']} Punkte inkl. Joker, "
+                f"{last_night['Pct_richtig']:.0%} richtig ohne Joker, "
                 f"Platz {last_night.get('Platzierung', '?')} von "
                 f"{last_night.get('Von', '?')}."})
     sections.append({"titel": "Form-Trend", "lead": None, "items": items})
@@ -793,15 +798,17 @@ def compute_insights(quiz_nights):
     if n >= 2:
         avg_gesamt = mean(q["Gesamt"] for q in sorted_nights[:-1])
         diff_g = last_night["Gesamt"] - avg_gesamt
+        # Beide Werte stammen aus "Gesamt", enthalten also die Joker-Punkte --
+        # einmal benannt, damit der Vergleich eindeutig bleibt.
         if diff_g > 3:
             items.append({"kind": "info",
-                "text": f"Mit {last_night['Gesamt']} Punkten deutlich über dem "
-                        f"Schnitt der bisherigen Abende (Ø {_de(avg_gesamt, 1)}) — "
-                        f"ein guter Lauf."})
+                "text": f"Mit {last_night['Gesamt']} Punkten inkl. Joker deutlich "
+                        f"über dem Schnitt der bisherigen Abende "
+                        f"(Ø {_de(avg_gesamt, 1)}) — ein guter Lauf."})
         elif diff_g < -3:
             items.append({"kind": "warnung",
-                "text": f"Mit {last_night['Gesamt']} Punkten unter dem Schnitt "
-                        f"der vorigen Abende (Ø {_de(avg_gesamt, 1)})."})
+                "text": f"Mit {last_night['Gesamt']} Punkten inkl. Joker unter dem "
+                        f"Schnitt der vorigen Abende (Ø {_de(avg_gesamt, 1)})."})
     sections.append({"titel": "Letzter Abend", "lead": None, "items": items})
 
     # ----------------------------------------------------------------------

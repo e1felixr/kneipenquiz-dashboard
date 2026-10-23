@@ -9,13 +9,14 @@
     "Apr 26",
     "Mai 26",
     "Jul 26",
-    "Sep 26"
+    "Sep 26",
+    "Okt 26"
   ],
   "categories": [
     {
       "Kategorie": "Aktuelles",
-      "Punkte_gesamt": 33,
-      "Mittelwert": 3.3,
+      "Punkte_gesamt": 36,
+      "Mittelwert": 3.272727272727273,
       "Apr 25": 2,
       "Mai 25": 4,
       "Jul 25": 4,
@@ -26,12 +27,13 @@
       "Mai 26": 3,
       "Jul 26": 4,
       "Sep 26": 2,
+      "Okt 26": 3,
       "Platz": 1
     },
     {
       "Kategorie": "Essen/Trinken",
-      "Punkte_gesamt": 26,
-      "Mittelwert": 2.6,
+      "Punkte_gesamt": 28,
+      "Mittelwert": 2.5454545454545454,
       "Apr 25": 2,
       "Mai 25": 3,
       "Jul 25": 4,
@@ -42,12 +44,13 @@
       "Mai 26": 5,
       "Jul 26": 3,
       "Sep 26": 1,
-      "Platz": 7
+      "Okt 26": 2,
+      "Platz": 6
     },
     {
       "Kategorie": "Film/Fernsehen",
-      "Punkte_gesamt": 27,
-      "Mittelwert": 2.7,
+      "Punkte_gesamt": 30,
+      "Mittelwert": 2.727272727272727,
       "Apr 25": 4,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -58,12 +61,13 @@
       "Mai 26": 4,
       "Jul 26": 1,
       "Sep 26": 2,
-      "Platz": 6
+      "Okt 26": 3,
+      "Platz": 5
     },
     {
       "Kategorie": "Geographie",
-      "Punkte_gesamt": 27,
-      "Mittelwert": 2.7,
+      "Punkte_gesamt": 32,
+      "Mittelwert": 2.909090909090909,
       "Apr 25": 2,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -74,12 +78,13 @@
       "Mai 26": 2,
       "Jul 26": 2,
       "Sep 26": 3,
-      "Platz": 6
+      "Okt 26": 5,
+      "Platz": 4
     },
     {
       "Kategorie": "Geschichte",
-      "Punkte_gesamt": 32,
-      "Mittelwert": 3.2,
+      "Punkte_gesamt": 33,
+      "Mittelwert": 3.0,
       "Apr 25": 4,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -88,14 +93,15 @@
       "Mrz 26": 4,
       "Apr 26": 1,
       "Mai 26": 4,
-      "Jul 26": 3,
+      "Jul 26": 2,
       "Sep 26": 4,
-      "Platz": 2
+      "Okt 26": 2,
+      "Platz": 3
     },
     {
       "Kategorie": "Kunst/Literatur",
-      "Punkte_gesamt": 26,
-      "Mittelwert": 2.6,
+      "Punkte_gesamt": 30,
+      "Mittelwert": 2.727272727272727,
       "Apr 25": 2,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -106,12 +112,13 @@
       "Mai 26": 3,
       "Jul 26": 2,
       "Sep 26": 3,
-      "Platz": 7
+      "Okt 26": 4,
+      "Platz": 5
     },
     {
       "Kategorie": "Musik",
-      "Punkte_gesamt": 31,
-      "Mittelwert": 3.1,
+      "Punkte_gesamt": 34,
+      "Mittelwert": 3.090909090909091,
       "Apr 25": 2,
       "Mai 25": 4,
       "Jul 25": 1,
@@ -122,12 +129,13 @@
       "Mai 26": 5,
       "Jul 26": 1,
       "Sep 26": 3,
-      "Platz": 3
+      "Okt 26": 3,
+      "Platz": 2
     },
     {
       "Kategorie": "Rel./Mythol.",
-      "Punkte_gesamt": 28,
-      "Mittelwert": 2.8,
+      "Punkte_gesamt": 30,
+      "Mittelwert": 2.727272727272727,
       "Apr 25": 4,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -138,12 +146,13 @@
       "Mai 26": 2,
       "Jul 26": 2,
       "Sep 26": 4,
+      "Okt 26": 2,
       "Platz": 5
     },
     {
       "Kategorie": "Sonderrunde",
-      "Punkte_gesamt": 25,
-      "Mittelwert": 2.5,
+      "Punkte_gesamt": 28,
+      "Mittelwert": 2.5454545454545454,
       "Apr 25": 0,
       "Mai 25": 5,
       "Jul 25": 0,
@@ -154,12 +163,13 @@
       "Mai 26": 4,
       "Jul 26": 2,
       "Sep 26": 3,
-      "Platz": 8
+      "Okt 26": 3,
+      "Platz": 6
     },
     {
       "Kategorie": "Sport",
-      "Punkte_gesamt": 30,
-      "Mittelwert": 3.0,
+      "Punkte_gesamt": 32,
+      "Mittelwert": 2.909090909090909,
       "Apr 25": 1,
       "Mai 25": 3,
       "Jul 25": 2,
@@ -170,12 +180,13 @@
       "Mai 26": 3,
       "Jul 26": 2,
       "Sep 26": 4,
+      "Okt 26": 2,
       "Platz": 4
     },
     {
       "Kategorie": "Verschiedenes",
-      "Punkte_gesamt": 30,
-      "Mittelwert": 3.0,
+      "Punkte_gesamt": 32,
+      "Mittelwert": 2.909090909090909,
       "Apr 25": 2,
       "Mai 25": 2,
       "Jul 25": 4,
@@ -186,23 +197,25 @@
       "Mai 26": 5,
       "Jul 26": 2,
       "Sep 26": 4,
+      "Okt 26": 2,
       "Platz": 4
     },
     {
       "Kategorie": "Wissensch./Natur",
-      "Punkte_gesamt": 22,
-      "Mittelwert": 2.2,
+      "Punkte_gesamt": 26,
+      "Mittelwert": 2.3636363636363638,
       "Apr 25": 3,
       "Mai 25": 1,
       "Jul 25": 3,
       "Sep 25": 4,
       "Jan 26": 3,
       "Mrz 26": 3,
-      "Apr 26": 1,
+      "Apr 26": 2,
       "Mai 26": 0,
       "Jul 26": 2,
       "Sep 26": 2,
-      "Platz": 9
+      "Okt 26": 3,
+      "Platz": 7
     }
   ],
   "quiz_nights": [
@@ -392,20 +405,20 @@
       "Joker2": "Sonderrunde",
       "Sonderrunde_Thema": "Loriot",
       "Teil1": 7,
-      "Teil2": 9,
+      "Teil2": 10,
       "Teil3": 7,
       "Teil4": 12,
       "Bonus": 8,
-      "Gesamt": 43,
-      "Pct_richtig": 0.5833333333333334,
-      "Platzierung": 7,
+      "Gesamt": 44,
+      "Pct_richtig": 0.6,
+      "Platzierung": 6,
       "Von": 16,
       "cat_scores": {
         "Aktuelles": 4,
         "Film/Fernsehen": 2,
         "Geschichte": 1,
         "Kunst/Literatur": 4,
-        "Wissensch./Natur": 1,
+        "Wissensch./Natur": 2,
         "Musik": 4,
         "Sonderrunde": 4,
         "Verschiedenes": 1,
@@ -455,10 +468,10 @@
       "Teil1": 6,
       "Teil2": 6,
       "Teil3": 6,
-      "Teil4": 8,
+      "Teil4": 7,
       "Bonus": 4,
-      "Gesamt": 30,
-      "Pct_richtig": 0.43333333333333335,
+      "Gesamt": 29,
+      "Pct_richtig": 0.4166666666666667,
       "Platzierung": 12,
       "Von": 15,
       "cat_scores": {
@@ -473,7 +486,7 @@
         "Wissensch./Natur": 2,
         "Essen/Trinken": 3,
         "Verschiedenes": 2,
-        "Geschichte": 3
+        "Geschichte": 2
       }
     },
     {
@@ -504,6 +517,36 @@
         "Sport": 4,
         "Rel./Mythol.": 4,
         "Geschichte": 4
+      }
+    },
+    {
+      "Datum": "2026-10-01",
+      "Monat": "Okt 26",
+      "Joker1": "Aktuelles",
+      "Joker2": "Film/Fernsehen",
+      "Sonderrunde_Thema": "14 Achttausender",
+      "Teil1": 9,
+      "Teil2": 9,
+      "Teil3": 9,
+      "Teil4": 7,
+      "Bonus": 6,
+      "Gesamt": 40,
+      "Pct_richtig": 0.5666666666666667,
+      "Platzierung": 8,
+      "Von": 16,
+      "cat_scores": {
+        "Kunst/Literatur": 4,
+        "Aktuelles": 3,
+        "Rel./Mythol.": 2,
+        "Wissensch./Natur": 3,
+        "Sonderrunde": 3,
+        "Musik": 3,
+        "Verschiedenes": 2,
+        "Geschichte": 2,
+        "Geographie": 5,
+        "Essen/Trinken": 2,
+        "Sport": 2,
+        "Film/Fernsehen": 3
       }
     }
   ]

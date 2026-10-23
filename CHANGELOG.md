@@ -2,6 +2,91 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
+## v0.10.0 (23.10.2026, 11:33 Uhr)
+
+### Neu
+
+- **Erster Reiter heißt „Übersicht" und trägt die Auswertung** — oben die Knöpfe „+ Neuer Abend", „Bearbeiten" und „Löschen", darunter die sechs Kennzahlen-Kacheln (aus dem Dashboard hierher umgezogen), darunter die Tabelle „Bisherige Abende" über die volle Breite. Ein Abend wird einmal im Monat eingetragen und dauert wenige Minuten, nachgesehen wird oft — die Eingabemaske besetzte den ersten Reiter bislang dauerhaft und drängte die Auswertung an den Rand.
+- **Das Eingabeformular öffnet jetzt als eigenes Fenster**, nicht mehr als Hälfte des Reiters. Es erscheint über dem Hauptfenster (`transient`, `grab_set`), trägt den Abend im Titel („Neuer Abend" bzw. „Abend bearbeiten — <Monat>") und schließt nach dem Speichern. Gemessen: 672 × 936 px beim neuen Abend, 691 × 960 px beim Bearbeiten — beide ohne Rollbalken. Die Knöpfe heißen dort „💾 Speichern" und „✕ Abbrechen"; „↶ Formular leeren" ist entfallen, weil ein geschlossenes Fenster nichts zu leeren hat.
+- **Jedes Diagramm im Dashboard lässt sich auf volle Reiterbreite schalten** („Vollansicht"), die anderen drei treten dabei zurück; ein Knopf führt zurück ins 2×2-Raster.
+- **Die Tabelle führt den ganzen Abend auf**: zusätzlich zu Monat, Jokern, Sonderrunde und Platz nun die vier Teilsummen (T1 bis T4), die Spielpunkte, die Joker-Punkte, den Gesamtwert mit Joker und die Quote. Spaltenbreiten gemessen, Summe 1.231 px — maximiert passt das ohne Rollleiste, bei 1200×800 erscheint sie.
+
+### Verbessert
+
+- **Die Summe je Teil steht wie eine Additionsaufgabe** — doppelte Querlinie unter dem dritten Punktefeld, darunter die Summe in Fettschrift, genau unter den drei Punktzahlen.
+- **Alle zwölf Kategoriefelder sind exakt gleich breit** — gemessen 504 px maximiert, 340 px bei 1200×800. Zuvor waren die drei Felder in Teil 1 schmaler, weil die dortige Kopfzeile „Punkte (0–5)" die Punkte-Spalte auseinanderzog.
+- **Feldeinträge und Beschriftungen stoßen nicht mehr an den Rand ihres Kastens** — sieben Pixel Einzug, zentral im Stil hinterlegt; Zahlen in Feldern stehen zentriert; die linksbündigen Tabellenspalten tragen einen Zell-Einzug.
+- **An jeder Punktzahl ist erkennbar, ob die Joker darin stecken.** Im Web-Dashboard nennt die Kachel „Punkte pro Abend" beide Werte; „Ø Richtig" und „Trend Quote" tragen „(ohne Joker)"; vier Kategorie-Diagramme und die Rohdaten-Spalten ebenso. In der Eingabe-GUI heißt der Ergebniswert „Gesamt (mit Joker)", die Tabelle trennt „Punkte" und „Gesamt m. Joker".
+
+### Behoben
+
+- **Beide Größen in den abgeleiteten Beobachtungen jetzt benannt** (`quiz_data.py`, speist Erkenntnisse-Reiter wie Web-Dashboard) — die Punkte **mit**, die Quote **ohne** Joker, bislang unbeschriftet im selben Satz: Wer „38 Punkte (56 %)" las, musste annehmen, die 56 Prozent bezögen sich auf die 38.
+- **Datenkorrektur April 2026:** Die Ergebnistafel des Quizabends weist 44 Punkte auf geteiltem Platz 6 aus, erfasst waren 43 und Platz 7. Der Vergleich der vier Rundensummen zeigte die Abweichung in Teil 2 (9 statt 10); der fehlende Punkt wurde Wissensch./Natur zugeschrieben (1 → 2), weil die beiden anderen Kategorien dieses Teils bei 4 lagen und ein Punkt dort eine „perfekte Runde" erfunden hätte, die es nie gab. Der Joker-Bonus bleibt bei 8. Quote nun 60,0 %.
+- **Datenkorrektur Juli 2026:** Hier irrte nicht die Tafel, sondern die Erfassung — die Tafel wies 29 Punkte aus, eingetragen waren 30. Felix hat die Runde nachgerechnet: Teil 4 bestand aus 3 + 2 + 2, erfasst war 3 + 2 + 3. Der Punkt zu viel saß bei Geschichte (3 → 2); Teil 4 fällt damit von 8 auf 7, die Spielpunkte von 26 auf 25, der Gesamtwert von 30 auf 29, die Quote auf 41,7 %. Der Joker-Bonus bleibt bei 4, die Platzierung bei 12 von 15 — Juli bleibt damit der schwächste Abend der Reihe.
+
+### Intern
+
+- Zwei Tk-Fallstricke beim Umbau gefunden und behoben: `winfo_reqheight()` einer frischen Toplevel war vor dem ersten vollen `update()` unzuverlässig, sodass das Fenster nach dem Öffnen sprang; und eine `<Configure>`-Bindung feuerte wegen gemeinsamer Bindtags für jedes Kind-Widget mit, wodurch ein winziges Zahlenfeld die Umbruchbreite der Hinweiszeile überschrieb und rund 55 px Leerraum erzeugte.
+- Testläufe der Oberfläche starten ab sofort durchsichtig und außerhalb des sichtbaren Bereichs (`alpha 0`, Position off-screen, `PrintWindow` mit `PW_RENDERFULLCONTENT`) — zuvor sprang bei jeder Sichtprüfung ein maximiertes Fenster vor die laufende Arbeit.
+- Die Fotos der Endergebnisse aller Teams (zwanzig Stück) sind ausgewertet und den elf Abenden zugeordnet; die vollständigen Ergebnislisten liegen als `_ergebnisse_roh.json` im Projektordner. Eine Datei trug ein falsches Datum im Namen und heißt nun `250925_000000.jpg`.
+- **Fußnote für künftige Auswertungen — September 2026: hier irrte die Tafel, nicht die Erfassung.** Sie führte 34 Punkte und Platz 6, richtig sind 35 und Platz 5: Teil 4 bestand aus 4 + 4 + 4, die Tafel rechnete 11. Das Team hat nicht protestiert, offiziell gewertet wurde der Tafelwert; `data.json` führt gleichwohl die korrekten Zahlen. Die Fotoauswertung (`_ergebnisse_roh.json`) markiert die betroffene Zeile als fehlerhaft, damit ein späterer Vergleich mit den anderen Teams nicht über die Differenz stolpert — dort stammen alle Zahlen aus den Tafeln, und an diesem einen Abend ist die eigene Zeile um einen Punkt zu niedrig. Zusammen mit April und Juli zeigt sich: Die Tafel ist nicht pauschal die verlässlichere Quelle — zweimal irrte die Erfassung, einmal die Tafel.
+- Ein Neubau der EXE steht weiterhin aus.
+
+## v0.9.5 (23.10.2026, 09:40 Uhr)
+
+### Verbessert
+
+- **Eingabe-Reiter zweigeteilt** — bisher lag die Liste der bisherigen Abende oben über die volle Breite, darunter zog sich das Formular quer über den Schirm. Der Reiter teilt sich jetzt im Gewicht 11:9: links das Eingabeformular, rechts die Liste. Gemessen im maximierten Fenster brauchte das Formular links fast die ganze Höhe seiner Hälfte (974 von 980 Pixeln), während die Tabelle rechts mit ihren sechs schlanken Spalten nur rund 790 von 1030 verfügbaren Pixeln Breite füllte und unter der letzten Zeile 540 Pixel leer ließ.
+- **Modus-Zeile ist jetzt die Überschrift der linken Hälfte** — fett, „Eingabe — Neuer Abend“ bzw. „Eingabe — Bearbeite Okt 26“. Darunter rollt bei Bedarf nur noch der Bereich mit Eckdaten und den vier Teilen untereinander; zuvor stand eine graue Kleinzeile über einem Rahmen namens „Eingabeformular“ — zwei Beschriftungen übereinander, von denen die eine nichts sagte und die andere überlesen wurde. Der Rahmentitel ist entfallen; er kostete genau die acht Pixel, an denen die Rollleiste auch im maximierten Fenster hängenblieb.
+- **Erläuternder Hinweis im Bearbeiten-Modus** — unter der Modus-Zeile erscheint dort eine eigene, kleine Zeile: Die Kategorien werden beim Speichern neu auf die vier Teile verteilt, die Teil-Summen können sich dadurch verschieben. Beim Anlegen eines neuen Abends bleibt sie ausgeblendet.
+- **Schrift und Tabellenzeilen gewachsen** — die Staffelung 8/9/10/14 pt, die aus dem engen Zweispalten-Layout stammte, ist auf 9/11/12/16 pt angehoben, dazu 14 pt fett für den neuen Gesamtstand; die Zeilenhöhe der Tabelle „Bisherige Abende“ wuchs von 22 auf 30 Pixel.
+- **Größere Eingabefelder** — die Kategorie-Felder wachsen jetzt mit der Spaltenbreite statt fest 20 Zeichen zu messen (gemessen 503 Pixel maximiert, 338 Pixel bei 1200×800 — vorher fest 245 Pixel); die Joker-Comboboxen sind von 18 auf 24 Zeichen gewachsen, das Sonderrunden-Feld von 22 auf 28, das Monatsfeld von 8 auf 10.
+- **Feldeinträge stoßen nicht mehr an den Rand** — Labels, Rahmenüberschriften, Eingabefelder, Auswahlfelder, Zahlenfelder und die Spaltenköpfe der Tabelle tragen jetzt einen waagrechten Innenabstand von 7 Pixeln an einer einzigen Stelle im Stil, statt wie bisher hart an die Kastenlinie zu stoßen — Text klebte links an ihr, Zahlen rechts. Der senkrechte Anteil bleibt bewusst bei 1 Pixel: Über zwanzig Formularzeilen hätte sich das sonst vervielfacht und die Rollleiste zurückgeholt (gemessen: Das Formular braucht dadurch 774 statt 773 Pixel, bleibt also innerhalb der 802 Pixel des Rollbereichs).
+- **Zahlen in Feldern stehen zentriert** — Punkte (0–5), Platz, von und Jahr. In einem schmalen Feld klebte eine rechts- oder linksbündige Ziffer unweigerlich an einer der beiden Kanten.
+- **Tabellenzellen tragen jetzt ebenfalls einen Einzug** — die vier linksbündigen Spalten Monat, Joker 1, Joker 2 und Sonderrunde. ttk kennt für die Datenzellen eines Treeview kein Innenpolster — ein Stil-Padding greift nur am Spaltenkopf —, darum steht der Einzug als vorangestelltes Leerzeichen, das die Spaltenbreiten mitmessen. Die zentrierten Zahlenspalten „Gesamt“ und „Platz / Von“ brauchen ihn nicht.
+- **„+ Neuer Abend“ entfällt** — das Formular ist dauerhaft eingabebereit, startet mit dem laufenden Monat vorbelegt und steht nach jedem Speichern wieder leer. Ein Knopf, der einen ohnehin vorhandenen Zustand herstellte, war nur ein Zwischenschritt; den Modus „inaktiv“ gibt es damit nicht mehr.
+- **„✕ Abbrechen“ entfällt, „↶ Zurücksetzen“ heißt jetzt „↶ Formular leeren“** — Abbrechen schaltete das Formular ab, was ohne den Aktivierungsknopf gegenstandslos wurde. „Formular leeren“ führt jetzt aus dem Bearbeiten-Modus zum neuen Abend zurück und hebt zugleich die Zeilenauswahl in der Liste auf.
+
+### Behoben
+
+- **Live-Quote mit Dezimalpunkt** — „% richtig: 56.4 %“ war die einzige Stelle der Oberfläche mit englischer Schreibweise. Sie steht jetzt mit Komma.
+- **Ergebnis-Block und Modus-Zeile waren bei kleinerem Fenster unsichtbar** — beide lagen im Rollbereich des Formulars; bei 1200×800 sah man den Gesamtstand damit nicht, obwohl er laufend mitgerechnet wurde, und drückte „Speichern“, ohne zu erkennen, ob das einen neuen Abend anlegt oder einen vorhandenen überschreibt. Beide sind jetzt fest verankert — die Modus-Zeile oben, der Ergebnis-Block unmittelbar über den Aktionsknöpfen.
+- **Ein Doppelklick in die Liste konnte ein gefülltes Formular ohne Rückfrage überschreiben** — eine Geste, mit der man gewöhnlich nur nachschaut, löschte sonst zwölf Kategorien und zwölf Punktwerte ohne Rückholmöglichkeit. „Bearbeiten“ und „Formular leeren“ fragen jetzt nach, wenn etwas zu verlieren ist; im Bearbeiten-Modus wird dafür gegen den geladenen Stand verglichen, damit die Rückfrage nur bei echten Änderungen kommt.
+- **Die Tabellenspalten dehnten sich und schnitten dabei Inhalte ab** — bei 1200×800 maßen „Joker 1“ 76 und „Joker 2“ 68 Pixel, sichtbar standen dort „Geschicht“, „Geograph“, „Kunst/Lite“ — ohne Auslassungspunkte, der Verlust blieb also unbemerkt. Die Spalten haben jetzt feste, am längsten vorkommenden Inhalt gemessene Breiten; eine waagrechte Leiste erscheint, wenn sie nicht alle hineinpassen.
+- **Die Quote im Ergebnis-Block klebte an der Gesamtsumme** — 385 Pixel Leere auf der einen, 20 auf der anderen Seite. Sie steht jetzt mittig zwischen Joker-Punkten und Gesamtstand (gemessen 267 zu 273 Pixel bei maximiertem Fenster).
+- **Das Punktefeld war unbeschriftet, die Quote verschwieg ihren Nenner** — Teil 1 trägt jetzt die Kopfzeile „Kategorie“ und „Punkte (0–5)“ (die Rahmen 2 bis 4 erben die Lesart); die Quote lautet jetzt „% richtig: 56,7 % (von 60)“.
+
+### Intern
+
+- **Waagrechte Rollleiste der Tabelle nur bei Bedarf** — dafür war `before=self.tree` nötig: Der Baum ist mit `expand=True` zuerst gepackt und hätte sonst den ganzen Raum verbraucht — die Leiste galt als gepackt, bekam aber keine Höhe und blieb unsichtbar, obwohl 776 Pixel Spalten auf 475 Pixel Breite trafen.
+- **Formular dichter gepackt** — die Zeilenabstände sind von 3 auf 2 Pixel verdichtet, der untere Abstand der Summenzeilen von 5 auf 2. Das Formular (nur noch Eckdaten und Teile, seit Ergebnis und Modus-Zeile fest verankert sind) braucht dadurch 774 statt vorher 809 Pixel und bleibt auch im Bearbeiten-Modus mit seiner zusätzlichen Hinweiszeile (19 Pixel) innerhalb der 802 Pixel des Rollbereichs — maximiert rollt also nichts.
+- **Pauschales Spaltenpolster in `_spaltenbreite()` von 24 auf 18 Pixel gesenkt** — der Zell-Einzug steckt seit der neuen Konstante `ZELL_EINZUG` bereits in den gemessenen Proben selbst; ohne die Senkung summierten sich beide, und die Tabelle rollte waagrecht, obwohl sie passte. Gemessen: Spaltensumme 776 Pixel bei 800 Pixel Tabellenbreite (maximiertes Fenster) — keine waagrechte Leiste mehr; bei 1200×800 greift sie weiterhin.
+- **Abschlussprobe bei abgefangenem `save_data`**: 21 von 21 Prüfungen bestanden — Autovervollständigung in allen vier Teilen, Rückfrage greift bei Eingaben und schweigt beim leeren Formular, Abbruch lässt die Eingaben stehen, Bearbeiten, Speichern eines vollständigen Abends (11 → 12 Einträge, Gesamt 42 bei 36 Punkten plus 6 Joker-Punkten), beide weiteren Reiter. `data.json` blieb unberührt.
+- **Weitere Probe mit abgefangenem Speichern zum Zell-Einzug**: 9 von 9 Prüfungen bestanden. Der Einzug wirkt nur in der Anzeige — Monat und Sonderrunden-Thema werden ohne führendes Leerzeichen gespeichert, und das Bearbeiten findet seinen Abend weiterhin über die Zeilenkennung, nicht über die Zellwerte. `data.json` blieb unberührt.
+- **Ein Neubau der EXE steht aus** — `VERSION` ist auf 0.9.5 gezogen, die gebaute `Quiz.exe` trägt noch 0.9.3.0.
+
+## v0.9.4 (23.10.2026, 08:32 Uhr)
+
+### Verbessert
+
+- **Kennzahlen-Karten im Web-Dashboard zu zweit auf dem Telefon** — einspaltig gestapelt lagen zehn Karten à 165 Pixel vor dem ersten Diagramm: ein gemessener Scrollweg von 2.208 Pixeln, also zweieinhalb Telefon-Bildschirme, ehe überhaupt eine Grafik erschien. Auf Telefonbreite (≤ 768 px) stehen die Karten jetzt zu zweit nebeneinander, der Scrollweg sinkt auf 1.078 Pixel — fünf Reihen statt zehn. Diagramm-Spalten bleiben gestapelt, ihnen fehlt bei halber Breite die Lesbarkeit. Umgesetzt mit dem CSS-Selektor `:has()`; kennt ein Browser ihn nicht, bleibt es beim bisherigen Stapeln.
+- **Kopfabstand auf dem Telefon verkürzt** — Streamlits Standardabstand von 6rem vor dem Titel kostete mobil einen halben Bildschirm; er ist auf 1,2rem gesetzt, die erste Karte beginnt nun bei 199 statt 276 Pixel.
+- **Kennzahlen-Karten mobil einheitlich hoch** — alle zehn Karten messen jetzt 140 Pixel. Die Karte „Perfekte Runden" trug eine mehrzeilige Aufzählung und war als einzige höher (140 gegen 118 Pixel) — derselbe Reihenbruch, der am Schirm bereits in v0.9.3 behoben wurde.
+- **Kartenwert „Wissensch./Natur" lief über den Rand** — die Werteschrift ist mobil auf 1,1rem verkleinert und darf umbrechen, damit auch der längste Kennzahlen-Wert innerhalb seiner Karte bleibt.
+
+### Behoben
+
+- **Diagrammtitel auf dem Telefon abgeschnitten** — der Titel des gestapelten Kategorie-Diagramms lief auf 390 Pixel Telefonbreite bis 505 Pixel und war damit rechts abgeschnitten. Er heißt jetzt „Monatssumme nach Kategorie" statt „Punkte je Kategorie und Monat (feste Reihenfolge, stärkste unten)"; was der Zusatz erklärte, steht ohnehin im Fließtext unter dem Diagramm.
+- **Legende verdeckte die Monatsnamen** — dieselbe Legende saß relativ zur Zeichenfläche (y = −0,12); elf Einträge brauchten dort auf dem Telefon drei Zeilen statt der einen, die am Schirm reicht, und verdeckten die Monatsnamen vollständig. Sie ist jetzt am unteren Figurenrand verankert (`yref="container"`), der Abstand bleibt damit in jeder Breite gleich.
+- **Platzierungsbeschriftungen kollidierten mit Balken und Linie** — im Diagramm „Platzierung & Quote pro Quizabend" rückten die Beschriftungen („7. / 16" usw.) auf 358 Pixel Breite so eng zusammen, dass sie auf Balken und Linie zu liegen kamen. Sie stehen jetzt auf hellem Grund.
+- **Graue Schrift auf grauem Grund an vier Stellen** — gemessen am WCAG-Kontrast (Grenze 4,5:1): die Fußzeile mit 2,2:1 (#9ca3af), Kopf-Unterzeile und sämtliche Erläuterungstexte unter den Diagrammen mit 4,1:1 (#6b7280 auf dem Seitengrund #ebedf0) sowie die Farbquadrate der Themenart-Legende mit 1,8:1. Alle Texte stehen jetzt in #4b5563 (5,9:1); die Farbquadrate sind Farbflächen mit Kontur statt eingefärbter Schriftzeichen, womit die Farbtreue zum Diagramm erhalten bleibt.
+- **Themenart „übrige" grau auf grau im Sonderrunden-Diagramm** — das Hellgrau #bab0ac taugte als Balkenfarbe, erreichte als Schriftfarbe der Themennamen aber nur 2,2:1 gegen Weiß; „Landkreise in Mittelfranken", „Biene Maja" und „14 Achttausender" standen damit grau auf grau. Die Farbe ist jetzt #6f6a65.
+- **Weiße Beschriftung in hellen Stapelsegmenten unlesbar** — die Beschriftung stand durchweg in Weiß, auch auf den hellen Tönen der Palette (Gelb, Grau, Rosa, Hellblau: 1,6 bis 2,3:1). Eine neue Funktion `_lesefarbe()` wählt je Fläche nach WCAG-Kontrast zwischen Weiß und Dunkelgrau.
+
+### Intern
+
+- **Sichtgeprüft mit Playwright in beiden Breiten (390×844 Telefon, 1920×1080 Schirm)** — die Kontraste aller Textelemente maschinell gemessen, danach null Verstöße auf Telefon wie Schirm. `streamlit.testing.v1.AppTest` läuft ohne Ausnahme durch (38 Markdown-Blöcke, ein Aufklapper, eine Tabelle). Am Schirm unverändert: Karten 165 Pixel, kein Element über die Fensterbreite hinaus.
+
 ## v0.9.3 (22.10.2026, 15:27 Uhr)
 
 ### Behoben

@@ -54,7 +54,8 @@ st.markdown("""
         margin-bottom: 0.2rem;
     }
     .dashboard-header p {
-        color: #6b7280;
+        /* wie .info-text: auf dem Seitengrund reicht #6b7280 nicht (4,1:1) */
+        color: #4b5563;
         font-size: 1.1rem;
     }
 
@@ -131,12 +132,30 @@ st.markdown("""
         margin: 1.5rem 0;
     }
 
-    /* Info text */
+    /* Info text -- #4b5563 statt #6b7280: Auf dem Seitengrund #ebedf0 erreichte
+       das hellere Grau nur 4,1:1 und blieb damit unter der Lesbarkeitsgrenze
+       von 4,5:1; bei 12 px Schriftgröße las sich das als grau auf grau.
+       #4b5563 bringt 5,9:1. Auf weißen Karten bleibt #6b7280, dort sind es
+       4,8:1. */
     .info-text {
-        color: #6b7280;
+        color: #4b5563;
         font-size: 0.75rem;
         margin-top: -0.5rem;
         margin-bottom: 0.5rem;
+    }
+
+    /* Farbprobe in Fließtext-Legenden: Ein eingefärbtes Zeichen ■ verschwand
+       in den hellen Tönen fast völlig (das Grau erreichte 1,8:1). Die Probe
+       trägt jetzt die Farbe als Fläche und eine Kontur, die sie auf jedem
+       Grund sichtbar hält -- die Farbtreue zum Diagramm bleibt erhalten. */
+    .farbprobe {
+        display: inline-block;
+        width: 11px;
+        height: 11px;
+        border-radius: 2px;
+        border: 1px solid #4b5563;
+        vertical-align: -1px;
+        margin-right: 3px;
     }
 
     /* Erkenntnisse */
@@ -204,6 +223,56 @@ st.markdown("""
             width: 100% !important;
             flex: 1 1 100% !important;
             min-width: 100% !important;
+        }
+
+        /* AUSNAHME vom Stapeln: die Kennzahlen-Karten stehen zu zweit
+           nebeneinander. Einspaltig gestapelt lagen zehn Karten à 165 px vor
+           dem ersten Diagramm -- gemessene 2.208 px Scrollweg, also zweieinhalb
+           Telefon-Bildschirme, ehe überhaupt eine Grafik erscheint. Zu zweit
+           sind es fünf Reihen statt zehn. Diagramm-Spalten bleiben gestapelt,
+           denn ihnen fehlt bei halber Breite die Lesbarkeit.
+           ':has' trennt beide Fälle; wo ein Browser es nicht kennt, bleibt es
+           beim Stapeln von oben -- schlechter, aber nicht kaputt. */
+        [data-testid="stHorizontalBlock"]:has(.kpi-card) {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            gap: 0.5rem !important;
+        }
+        [data-testid="stHorizontalBlock"]:has(.kpi-card) > [data-testid="stColumn"] {
+            width: calc(50% - 0.25rem) !important;
+            flex: 0 0 calc(50% - 0.25rem) !important;
+            min-width: calc(50% - 0.25rem) !important;
+        }
+        /* Der Streamlit-Kopfabstand von 6rem kostet auf dem Telefon einen
+           halben Bildschirm, ehe der Titel kommt. */
+        .block-container {
+            padding-top: 1.2rem !important;
+        }
+
+        [data-testid="stHorizontalBlock"]:has(.kpi-card) .kpi-card {
+            /* 140 px, nicht 118: Die Karte "Perfekte Runden" traegt eine
+               mehrzeilige Aufzaehlung und war damit als einzige hoeher --
+               genau der Reihenbruch, der am Schirm schon behoben war. */
+            min-height: 140px;
+            padding: 0.6rem 0.4rem;
+            margin-bottom: 0;
+        }
+        [data-testid="stHorizontalBlock"]:has(.kpi-card) .kpi-label {
+            font-size: 0.62rem;
+            letter-spacing: 0.5px;
+            line-height: 1.2;
+        }
+        [data-testid="stHorizontalBlock"]:has(.kpi-card) .kpi-value {
+            /* "Wissensch./Natur" ist der laengste Kennzahlen-Wert und lief bei
+               1,3rem ueber den Kartenrand hinaus. Kleiner gesetzt und mit
+               erlaubtem Umbruch bleibt jeder Wert innerhalb seiner Karte. */
+            font-size: 1.1rem;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+        [data-testid="stHorizontalBlock"]:has(.kpi-card) .kpi-sub {
+            font-size: 0.68rem;
+            line-height: 1.2;
         }
     }
 
@@ -297,6 +366,26 @@ def _de(x, dez=1, trim=False):
         return f"{round(x):d}"
     return f"{x:.{dez}f}".replace(".", ",")
 
+
+def _lesefarbe(hexfarbe, hell="#ffffff", dunkel="#1f2937"):
+    """Waehlt Weiss oder Dunkelgrau -- je nachdem, was auf der Flaeche traegt.
+
+    Die Beschriftung in den Stapelbalken stand durchweg in Weiss. Auf den
+    dunklen Toenen der Palette ist das richtig, auf den hellen (Gelb #edc948,
+    Grau #bab0ac, Rosa #ff9da7, Hellblau #a0cbe8) ergab es 1,6 bis 2,3:1 --
+    weiss auf hell, also praktisch unlesbar. Entschieden wird nach dem
+    WCAG-Kontrast: Welche der beiden Schriftfarben besser steht, gewinnt.
+    """
+    r, g, b = (int(hexfarbe[i:i + 2], 16) / 255 for i in (1, 3, 5))
+
+    def _lin(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    lum = 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
+    k_hell = 1.05 / (lum + 0.05)          # Weiss hat Luminanz 1,0
+    k_dunkel = (lum + 0.05) / (0.0295 + 0.05)   # #1f2937 hat rund 0,0295
+    return hell if k_hell >= k_dunkel else dunkel
+
 # ---------------------------------------------------------------------------
 # HEADER
 # ---------------------------------------------------------------------------
@@ -314,7 +403,11 @@ st.markdown(f"""
 # ---------------------------------------------------------------------------
 night_points = [q["Gesamt"] for q in quiz_nights]
 avg_points = np.mean(night_points)
-med_points = np.median(night_points)
+# Spielwert ohne Joker: Summe der vier Teile, ohne den Joker-Bonus, der in
+# "Gesamt" bereits drinsteckt. Beide Werte interessieren -- siehe KPI-Karte
+# "Punkte pro Abend" unten, die deshalb beide nennt statt nur den einen.
+spiel_points = [q["Teil1"] + q["Teil2"] + q["Teil3"] + q["Teil4"] for q in quiz_nights]
+avg_spiel_points = np.mean(spiel_points)
 avg_pct = np.mean([q["Pct_richtig"] for q in quiz_nights])
 placements = [q["Platzierung"] for q in quiz_nights if q["Platzierung"] is not None]
 best_placement = min(placements) if placements else "–"
@@ -344,11 +437,15 @@ cols = st.columns(6)
 kpi_data = [
     ("Quizabende", str(n_nights), f"seit {_first_month}", ""),
     # Die Spanne darf nicht am Gedankenstrich umbrechen -- "28-" und "47" auf
-    # zwei Zeilen las sich wie zwei Angaben.
+    # zwei Zeilen las sich wie zwei Angaben. Der grosse Wert ist "Gesamt" und
+    # enthaelt den Joker-Bonus; die zweite Zeile nennt zusaetzlich den reinen
+    # Spielwert ohne Joker, sonst stuende unbenannt dieselbe Punktzahl fuer
+    # zwei verschiedene Dinge. Median entfaellt hier zugunsten der beiden
+    # Joker-Werte -- drei Zeilen sprengten die Kartenhoehe (165 px).
     ("Punkte pro Abend", _de(avg_points),
-     f"Median {_de(med_points, trim=True)} · "
-     f"<span style='white-space:nowrap'>Spanne {min(night_points)}–{max(night_points)}</span>", ""),
-    ("Ø Richtig", f"{avg_pct:.0%}", f"von max. 60 Fragen", ""),
+     f"inkl. Joker · <span style='white-space:nowrap'>Spanne {min(night_points)}–{max(night_points)}</span><br>"
+     f"ohne Joker Ø {_de(avg_spiel_points)} Pkt.", ""),
+    ("Ø Richtig", f"{avg_pct:.0%}", f"von max. 60 Fragen (ohne Joker)", ""),
     ("Beste Platzierung", f"{best_placement}.", f"{best_placement_q['Monat']} ({best_placement_q['Von']} Teams)", ""),
     ("Ø Feldposition", f"{avg_feldpos:.0f} %",
      f"Ø Platz {_de(avg_placement)} bei {_de(np.mean([q['Von'] for q in quiz_nights if q['Von']]))} Teams",
@@ -356,7 +453,7 @@ kpi_data = [
     # Kurzes Label: "Trend Richtig-Quote" brach als einziges um und machte
     # seine Karte hoeher als die fuenf daneben.
     ("Trend Quote", f"{trend_arrow} {abs(trend_delta):.0%}",
-     f"{quiz_nights[-1]['Monat']} vs. {quiz_nights[-2]['Monat']}", trend_class),
+     f"{quiz_nights[-1]['Monat']} vs. {quiz_nights[-2]['Monat']} (ohne Joker)", trend_class),
 ]
 
 for col, (label, value, sub, cls) in zip(cols, kpi_data):
@@ -464,9 +561,9 @@ with st.expander(f"Rohdaten aller {n_nights} Quizabende"):
             "Teil 4": centered(st.column_config.NumberColumn("Teil 4", format="%d")),
             "Joker-Pkt.": centered(st.column_config.NumberColumn("Joker-Pkt.", format="%d")),
             "Gesamt": st.column_config.ProgressColumn(
-                "Gesamt", min_value=0, max_value=70, format="%d Pkt.",
+                "Gesamt (inkl. Joker)", min_value=0, max_value=70, format="%d Pkt.",
             ),
-            "% richtig": centered(st.column_config.NumberColumn("% richtig", format="%.0f %%")),
+            "% richtig": centered(st.column_config.NumberColumn("% richtig (ohne Joker)", format="%.0f %%")),
             "Platz": centered(st.column_config.NumberColumn("Platz", format="%d.")),
             "von": centered(st.column_config.NumberColumn("von", format="%d")),
         },
@@ -539,6 +636,13 @@ with st.container():
                 text=f"<b>{label}</b>",
                 showarrow=False,
                 font=dict(color="#34495e", size=12),
+                # Heller Grund hinter der Zahl: Auf 358 px Telefonbreite
+                # ruecken elf Beschriftungen so eng zusammen, dass sie auf
+                # Balken und Linie zu liegen kommen -- "7. / 16" stand dort
+                # mitten im Liniengrau. Der Grund haelt sie in jeder Breite
+                # lesbar, ohne das Bild zu beschweren.
+                bgcolor="rgba(255,255,255,0.78)",
+                borderpad=1,
                 yshift=18,
             ))
 
@@ -547,7 +651,7 @@ with st.container():
         title=dict(text="Platzierung & Quote pro Quizabend", font=dict(size=16)),
         annotations=annotations,
         yaxis=dict(
-            title="% richtig", tickformat=".0%", range=[0, 1],
+            title="% richtig (ohne Joker)", tickformat=".0%", range=[0, 1],
             dtick=1 / n_intervals,
             gridcolor="rgba(0,0,0,0.06)", side="left",
         ),
@@ -600,7 +704,7 @@ with col1:
     fig_rank.update_layout(
         **PLOTLY_LAYOUT,
         title=dict(text="Kategorie-Ranking (Ø Punkte)", font=dict(size=16)),
-        xaxis=dict(range=[0, 4.5], gridcolor="rgba(0,0,0,0.05)", title="Ø Punkte (max. 5)"),
+        xaxis=dict(range=[0, 4.5], gridcolor="rgba(0,0,0,0.05)", title="Ø Punkte (max. 5, ohne Joker)"),
         yaxis=dict(tickfont=dict(size=12)),
         height=CHART_H,
     )
@@ -632,7 +736,7 @@ with col2:
     ))
     fig_heat.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text="Punkte je Kategorie und Monat (0 bis 5)", font=dict(size=16)),
+        title=dict(text="Punkte je Kategorie und Monat (0 bis 5, ohne Joker)", font=dict(size=16)),
         xaxis=dict(tickfont=dict(size=12)),
         yaxis=dict(tickfont=dict(size=11), automargin=True),
         height=CHART_H,
@@ -686,7 +790,7 @@ for cat in all_cats:
         text=[CAT_SHORT.get(cat, cat) if v >= 3 else "" for v in werte],
         textposition="inside",
         insidetextanchor="middle",
-        textfont=dict(size=10, color="#ffffff"),
+        textfont=dict(size=10, color=_lesefarbe(cat_color_map[cat])),
         marker=dict(
             color=cat_color_map[cat],
             line=dict(width=0.5, color="#ffffff"),
@@ -696,18 +800,29 @@ for cat in all_cats:
 
 fig_dev2.update_layout(
     **PLOTLY_LAYOUT,
-    title=dict(text="Punkte je Kategorie und Monat (feste Reihenfolge, stärkste unten)",
-               font=dict(size=16)),
+    # Kurzer Titel mit Bedacht: Der frühere Zusatz "(feste Reihenfolge,
+    # stärkste unten)" machte ihn 64 Zeichen lang -- auf 390 px Telefonbreite
+    # lief er bis 505 px und war damit rechts abgeschnitten. Was er erklärte,
+    # steht ohnehin im Fließtext unter dem Diagramm.
+    title=dict(text="Monatssumme nach Kategorie", font=dict(size=16)),
     barmode="stack",
     yaxis=dict(title="Punkte (ohne Sonderrunde und Joker)",
                gridcolor="rgba(0,0,0,0.05)"),
-    xaxis=dict(gridcolor="rgba(0,0,0,0.05)"),
+    xaxis=dict(gridcolor="rgba(0,0,0,0.05)", automargin=True),
     showlegend=True,
-    legend=dict(orientation="h", yanchor="top", y=-0.12,
+    # Legende am unteren Figurenrand verankert (yref="container"), nicht an
+    # der Zeichenfläche: Bei y=-0.12 relativ zur Fläche lag sie auf dem Telefon
+    # über den Monatsnamen und verdeckte sie vollständig -- elf Einträge
+    # brauchen dort drei Zeilen statt der einen, die am Schirm reicht. Vom
+    # Figurenrand aus gemessen bleibt der Abstand in jeder Breite derselbe.
+    legend=dict(orientation="h", yref="container", yanchor="bottom", y=0.01,
                 xanchor="center", x=0.5, font=dict(size=10),
                 traceorder="reversed"),
     height=CHART_H_TALL,
 )
+# margin steckt bereits in PLOTLY_LAYOUT; der untere Rand wird hier erhoeht,
+# damit die abgesenkte Legende Platz findet.
+fig_dev2.update_layout(margin_b=130)
 st.plotly_chart(fig_dev2, width='content', config=PLOTLY_CONFIG)
 st.markdown(
     '<p class="info-text">Jede Kategorie behält Farbe und Position über alle '
@@ -739,10 +854,15 @@ with col1:
     # Farbe nach Themenart statt nach Punktzahl: Die Punktzahl steht bereits
     # als Balkenlänge da, die Themenart dagegen ist die eigentliche Erkenntnis
     # -- klassische Themen gingen bislang ausnahmslos leer aus.
-    ART_FARBE = {"klassisch": "#9b4d4d", "popkultur": "#2171b5", "sonst": "#bab0ac"}
+    # "sonst" trug bis hierher #bab0ac -- ein Hellgrau, das als Balken taugt,
+    # als Schriftfarbe der Themennamen aber nur 2,2:1 gegen Weiß erreichte:
+    # "Landkreise in Mittelfranken", "Biene Maja" und "14 Achttausender"
+    # standen damit grau auf grau. #6f6a65 bringt 5,2:1 und bleibt ein
+    # neutrales Grau zwischen dem Blau und dem Rotbraun.
+    ART_FARBE = {"klassisch": "#9b4d4d", "popkultur": "#2171b5", "sonst": "#6f6a65"}
     ART_NAME = {"klassisch": "klassisch", "popkultur": "Popkultur", "sonst": "übrige"}
     sonder_arten = [qd._classify_theme(t) if qd else "sonst" for t in sonder_themen]
-    sonder_colors = [ART_FARBE.get(a, "#bab0ac") for a in sonder_arten]
+    sonder_colors = [ART_FARBE.get(a, ART_FARBE["sonst"]) for a in sonder_arten]
 
     # Plotly zeichnet das erste Element unten: umkehren stellt den
     # aeltesten Abend nach oben.
@@ -762,7 +882,7 @@ with col1:
         **PLOTLY_LAYOUT,
         title=dict(text="Sonderrunden-Ergebnisse", font=dict(size=16)),
         xaxis=dict(range=[0, 5.5], tickvals=[0, 1, 2, 3, 4, 5],
-                   gridcolor="rgba(0,0,0,0.05)", title="Punkte (max. 5)"),
+                   gridcolor="rgba(0,0,0,0.05)", title="Punkte (max. 5, ohne Joker)"),
         # Die Themenart gehört auf die Beschriftung, nicht nur auf den Balken:
         # Die klassischen Themen brachten ausnahmslos null Punkte, haben also
         # gar keinen Balken, der eine Farbe tragen könnte -- ausgerechnet dort
@@ -770,7 +890,7 @@ with col1:
         yaxis=dict(tickfont=dict(size=10), automargin=True,
                    tickmode="array",
                    tickvals=sonder_labels[::-1],
-                   ticktext=[f'<span style="color:{ART_FARBE.get(a, "#bab0ac")}">{lbl}</span>'
+                   ticktext=[f'<span style="color:{ART_FARBE.get(a, ART_FARBE["sonst"])}">{lbl}</span>'
                              for lbl, a in zip(sonder_labels[::-1], sonder_arten[::-1])]),
         height=CHART_H_TALL,
         bargap=0.25,
@@ -782,7 +902,7 @@ with col1:
     # zweimal auf einer Seite wäre genau die Redundanz, die hier sonst
     # ausgeräumt wurde.
     _legende = [
-        f'<span style="color:{ART_FARBE[_a]};">&#9632;</span> {ART_NAME[_a]}'
+        f'<span class="farbprobe" style="background:{ART_FARBE[_a]};"></span>{ART_NAME[_a]}'
         for _a in ("popkultur", "sonst", "klassisch")
         if _a in set(sonder_arten)
     ]
@@ -906,7 +1026,7 @@ with col3:
         **PLOTLY_LAYOUT,
         title=dict(text=f"Verlässlichkeit je Kategorie ({n_nights} Abende)",
                    font=dict(size=16)),
-        xaxis=dict(title="Punkte je Abend (max. 5)",
+        xaxis=dict(title="Punkte je Abend (max. 5, ohne Joker)",
                    range=[-0.2, 5.9], tickvals=[0, 1, 2, 3, 4, 5],
                    gridcolor="rgba(0,0,0,0.05)"),
         yaxis=dict(tickfont=dict(size=11), automargin=True),
@@ -969,7 +1089,9 @@ if _sektionen:
 # Footer
 # ---------------------------------------------------------------------------
 st.markdown("""
-<div style="text-align:center; color:#9ca3af; padding:2rem 0 1rem 0; font-size:0.8rem;">
+<!-- #4b5563 statt #9ca3af: Das alte Grau erreichte auf dem Seitengrund nur
+     2,2:1 und war bei 13 px kaum zu entziffern. -->
+<div style="text-align:center; color:#4b5563; padding:2rem 0 1rem 0; font-size:0.8rem;">
     Kneipenquiz Schwabach Dashboard &mdash; Datenquelle: data.json &mdash; Built with Streamlit & Plotly
 </div>
 """, unsafe_allow_html=True)
