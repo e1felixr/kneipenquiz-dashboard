@@ -26,3 +26,13 @@ Thumbs.db
 .claude/
 CLAUDE.md
 *.e1std
+
+# Rohfassung der Gegner-Fotoauswertungen und der Klarnamen-Schluessel zu
+# ergebnisse.json: beide tragen echte Teamnamen und bleiben lokal. Nur die
+# anonymisierte ergebnisse.json (Kennungen statt Klarnamen) ist oeffentlich.
+_ergebnisse_roh.json
+_teamnamen_schluessel.json
+
+# Sicherungen von data.json vor groesseren Datenkorrekturen. Reine
+# Rueckfallebene am Arbeitsplatz -- die Historie der Datei fuehrt git.
+_data_vor_*.json

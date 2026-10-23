@@ -306,6 +306,18 @@ import pathlib
 # (Streamlit Cloud) liegt dieselbe Datei im Repo-Abbild.
 DATA_PATH = pathlib.Path(__file__).parent / "data.json"
 
+# quiz_data trägt die Themen-Klassifikation (_classify_theme), die zentrale
+# Filterung geplanter Abende (gespielte_abende) und die abgeleiteten
+# Beobachtungen (compute_insights), die auch der Tk-Reiter nutzt -- beides
+# hier einbinden statt ein zweites Mal pflegen. Reines Standard-Python ohne
+# GUI-Abhängigkeit, in der Streamlit Cloud also ladbar. Schlägt der Import
+# wider Erwarten fehl, filtert ein lokaler Ersatz unten weiter korrekt, nur
+# die Themen-Klassifikation und compute_insights fallen dann aus.
+try:
+    import quiz_data as qd
+except Exception:  # pragma: no cover - Deployment-Absicherung
+    qd = None
+
 
 # Die mtime gehört in den Cache-Schlüssel: sonst zeigt die lokal laufende App
 # nach einem neu erfassten Abend weiter den Stand des ersten Aufrufs.
@@ -320,18 +332,48 @@ def load_data(path: str, mtime: float):
 
 
 df_cat, months, quiz_nights = load_data(str(DATA_PATH), DATA_PATH.stat().st_mtime)
+
+# Geplante (noch nicht gespielte) Abende duerfen in keine Kennzahl, kein
+# Diagramm und keine Rohdaten-Zeile einfliessen -- sie tragen weder
+# "cat_scores" noch Punktfelder und wuerden sonst als Nullrunde jeden
+# Mittelwert verzerren oder mit KeyError abbrechen. "months"/"categories"
+# sind bereits ueber quiz_data.save_data() gefiltert; nur die rohe
+# "quiz_nights"-Liste traegt noch alle Abende und wird hier einmalig
+# bereinigt, ehe irgendeine Auswertung unten darauf zugreift.
+if qd is not None:
+    quiz_nights = qd.gespielte_abende(quiz_nights)
+else:  # pragma: no cover - Deployment-Absicherung
+    quiz_nights = [n for n in quiz_nights if not n.get("Geplant", False)]
 n_nights = len(quiz_nights)
 
-# quiz_data trägt die Themen-Klassifikation (_classify_theme) und die
-# abgeleiteten Beobachtungen (compute_insights), die auch der Tk-Reiter nutzt
-# -- beides hier einbinden statt ein zweites Mal pflegen. Reines Standard-
-# Python ohne GUI-Abhängigkeit, in der Streamlit Cloud also ladbar. Schlägt
-# der Import wider Erwarten fehl, fallen nur diese beiden Zugaben aus statt
-# des ganzen Dashboards.
-try:
-    import quiz_data as qd
-except Exception:  # pragma: no cover - Deployment-Absicherung
-    qd = None
+# Gegner-Ergebnisse (anonymisierte Kennungen, siehe compute_gegner_vergleich
+# in quiz_data.py) -- eigener Pfad statt qd.ERGEBNISSE_PATH aus demselben
+# Grund wie bei DATA_PATH oben: bleibt ladbar, auch wenn der quiz_data-Import
+# fehlschlaegt. WICHTIG: Diese Datei traegt nur Kennungen ("T01" usw.), nie
+# Klarnamen -- der Klarnamen-Schluessel (_teamnamen_schluessel.json) ist
+# bewusst nicht im Repo und wird von app.py an KEINER Stelle geladen (siehe
+# .gitignore-Kommentar). Das Web-Dashboard ist oeffentlich; nur die
+# Tk-Eingabe-GUI (quiz_eingabe.py) loest Kennungen zu echten Namen auf.
+ERGEBNISSE_PATH = pathlib.Path(__file__).parent / "ergebnisse.json"
+
+
+@st.cache_data
+def load_ergebnisse(path: str, mtime: float):
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+if ERGEBNISSE_PATH.exists():
+    ergebnisse = load_ergebnisse(str(ERGEBNISSE_PATH), ERGEBNISSE_PATH.stat().st_mtime)
+else:
+    ergebnisse = []
+
+gegner = None
+if qd is not None and ergebnisse:
+    try:
+        gegner = qd.compute_gegner_vergleich(quiz_nights, ergebnisse)
+    except Exception:  # pragma: no cover - Deployment-Absicherung
+        gegner = None
 
 # ---------------------------------------------------------------------------
 # Plotly theme defaults
@@ -726,7 +768,12 @@ with col2:
         zmin=0, zmax=5,
         text=df_heat.values,
         texttemplate="%{text}",
-        textfont=dict(size=14, color="#374151"),
+        # Keine feste Schriftfarbe: RdYlBu läuft an beiden Enden ins Dunkle
+        # (0 Punkte = tiefes Blau, 5 = tiefes Rot), und das vormals gesetzte
+        # #374151 verschwand dort fast -- ausgerechnet auf den
+        # aussagekräftigsten Feldern. Ohne Angabe wählt Plotly je Zelle den
+        # kontrastreicheren Ton gegen ihre Füllung.
+        textfont=dict(size=14),
         hovertemplate="%{y} – %{x}: %{z}/5<extra></extra>",
         # Keine Farbleiste: Es gibt nur sechs mögliche Werte (0 bis 5), und
         # jeder steht als Ziffer in seiner Zelle. Eine Skala erklärt damit
@@ -1042,6 +1089,182 @@ with col3:
         'riskant: mal top, mal flop.</p>',
         unsafe_allow_html=True,
     )
+
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# GEGNER-VERGLEICH
+# ---------------------------------------------------------------------------
+# Eigener Abschnitt vor den Erkenntnissen, Kennungen statt Klarnamen (siehe
+# Kommentar bei ERGEBNISSE_PATH oben). compute_gegner_vergleich() ist dieselbe
+# Funktion, die auch den Tk-Reiter 'Gegner' speist -- hier nur anders
+# dargestellt (plotly statt matplotlib, keine Namensaufloesung).
+st.markdown('<div class="section-title">Gegner-Vergleich</div>', unsafe_allow_html=True)
+
+if not ergebnisse or gegner is None:
+    st.markdown(
+        '<p class="info-text">Noch keine Gegner-Ergebnisse erfasst -- dieser '
+        'Abschnitt füllt sich, sobald weitere Ergebnislisten ausgewertet '
+        'sind.</p>',
+        unsafe_allow_html=True,
+    )
+else:
+    _g_meta = gegner["meta"]
+    _g_grundlage = (
+        f"{_g_meta['abende_endstand']} von {_g_meta['abende_gespielt']} gespielten "
+        f"Abenden gehen mit Endstand in die Auswertung ein."
+    )
+    if _g_meta["abende_zwischenstand"]:
+        _g_grundlage += (
+            f" {_g_meta['abende_zwischenstand']} weitere liegen nur als "
+            f"Zwischenstand vor der Joker-Vergabe vor und zählen darum nicht "
+            f"mit &ndash; die Punkte der Gegner wären dort unvollständig."
+        )
+    if _g_meta["abende_ohne_ergebnisliste"]:
+        _g_grundlage += (f" Zu {_g_meta['abende_ohne_ergebnisliste']} Abenden "
+                         f"liegt keine Ergebnisliste vor.")
+    st.markdown(f'<p class="info-text">{_g_grundlage}</p>', unsafe_allow_html=True)
+
+    # --- Tabelle "je Abend" -- in einen Aufklapper, acht Spalten sind auf
+    # dem Telefon sonst nicht zu lesen (gleiche Regel wie bei den Rohdaten
+    # oben). Zwischenstaende/Abende ohne Ergebnisliste: Strich statt Zahl,
+    # Monat traegt den Grund als Zusatz (wie GEPLANT_SUFFIX im Tk-Reiter). ---
+    _einordnung_by_abend = {e["abend"]: e for e in gegner["einordnung_platzierungen"]}
+    _rows_abend = []
+    for _e in gegner["je_abend"]:
+        if _e["stand"] == "endstand":
+            # Vorzeichen gedreht gegenueber "abstand_mittel" (Feldmittel
+            # minus eigene Punkte in compute_gegner_vergleich): hier eigene
+            # Punkte minus Feldmittel, damit "+" wie ueberall sonst im
+            # Dashboard "besser als" heisst.
+            _diff = -_e["abstand_mittel"]
+            _info = _einordnung_by_abend.get(_e["abend"])
+            # Alle Spalten als str: Die Zwischenstand-Zeilen tragen "–"
+            # statt einer Zahl (siehe unten) -- eine gemischte Spalte
+            # (int + str) scheitert bei der Arrow-Serialisierung, die
+            # st.dataframe fuer die Anzeige nutzt.
+            _rows_abend.append({
+                "Monat": _e["monat"],
+                "Teams": str(_e["teams_anzahl"]),
+                "Eigene Pkt.": str(_e["eigene_punkte"]),
+                "Siegerpunkte": str(_e["siegerpunkte"]),
+                "Rückstand z. Spitze": str(_e["abstand_spitze"]),
+                "Feldmittel": _de(_e["feld_mittelwert"]),
+                "Abstand zum Feld": f"{_diff:+.1f}".replace(".", ","),
+                "Einstufung": _info["einstufung"] if _info else "–",
+            })
+        else:
+            _suffix = (" (Zwischenstand)" if _e["stand"] == "zwischenstand"
+                      else " (ohne Auswertung)")
+            _rows_abend.append({
+                "Monat": _e["monat"] + _suffix,
+                "Teams": "–", "Eigene Pkt.": "–", "Siegerpunkte": "–",
+                "Rückstand z. Spitze": "–", "Feldmittel": "–",
+                "Abstand zum Feld": "–", "Einstufung": "–",
+            })
+    df_gegner_abend = pd.DataFrame(_rows_abend)
+
+    with st.expander(f"Ergebnisse je Abend ({len(df_gegner_abend)} Abende)"):
+        st.dataframe(
+            df_gegner_abend, width='content', hide_index=True,
+            # "medium" statt der automatischen Breite: Sonst schneidet die
+            # Monat-Spalte den Zusatz "(Zwischenstand)"/"(ohne Auswertung)"
+            # ab -- die automatische Messung richtet sich an der kuerzesten
+            # Zeile aus, nicht an der laengsten.
+            column_config={"Monat": st.column_config.TextColumn("Monat", width="medium")},
+        )
+
+    # --- Tabelle "Gegnerbilanz" -- nur aussagekraeftige Gegner, absteigend
+    # nach gemeinsamen Abenden. ---
+    _bilanz_items = sorted(
+        ((k, v) for k, v in gegner["gegnerbilanz"].items() if v["aussagekraeftig"]),
+        key=lambda kv: -kv[1]["gemeinsame_abende"],
+    )
+    _rows_bilanz = []
+    for _kennung, _v in _bilanz_items:
+        # Gleiche Drehung wie oben: eigene Punkte minus Gegner statt Gegner
+        # minus eigene Punkte -- "+" heisst "wir liegen im Schnitt vorn".
+        _abstand = -_v["punktabstand_mittel"]
+        _rows_bilanz.append({
+            "Team": _kennung,
+            "Gem. Abende": _v["gemeinsame_abende"],
+            "Vor uns": _v["vor_uns"],
+            "Hinter uns": _v["hinter_uns"],
+            "Gleichstand": _v["gleichstand"],
+            "Ø Punktabstand": f"{_abstand:+.1f}".replace(".", ","),
+        })
+    df_gegner_bilanz = pd.DataFrame(_rows_bilanz)
+
+    with st.expander(f"Gegnerbilanz ({len(df_gegner_bilanz)} Teams mit mind. "
+                     f"{_g_meta['mindest_gemeinsame_abende']} gemeinsamen "
+                     f"Endstand-Abenden)"):
+        st.dataframe(df_gegner_bilanz, width='content', hide_index=True)
+        st.markdown(
+            '<p class="info-text">Positive Werte beim Punktabstand: Sie '
+            'liegen im Schnitt vorn.</p>', unsafe_allow_html=True)
+
+    # --- Diagramme ---
+    col_g1, col_g2 = st.columns(2)
+
+    with col_g1:
+        _trend = gegner["trend"]
+        fig_gegner_abstand = go.Figure()
+        fig_gegner_abstand.add_trace(go.Bar(
+            x=_trend["monate"], y=_trend["abstand_spitze"],
+            marker=dict(color="#6baed6"),
+            text=[str(v) for v in _trend["abstand_spitze"]],
+            textposition="outside",
+            textfont=dict(color="#374151", size=12),
+            hovertemplate="%{x}: %{y} Pkt. Rückstand<extra></extra>",
+        ))
+        fig_gegner_abstand.update_layout(
+            **PLOTLY_LAYOUT,
+            title=dict(text="Abstand zur Spitze je Abend (Endstand-Abende)",
+                      font=dict(size=16)),
+            yaxis=dict(title="Rückstand (Pkt.)", gridcolor="rgba(0,0,0,0.06)"),
+            xaxis=dict(tickfont=dict(size=11)),
+            height=CHART_H,
+        )
+        st.plotly_chart(fig_gegner_abstand, width='content', config=PLOTLY_CONFIG)
+
+    with col_g2:
+        _rows_endstand = [e for e in gegner["je_abend"] if e["stand"] == "endstand"]
+        _rows_zw = [e for e in gegner["je_abend"] if e["stand"] == "zwischenstand"]
+        _monate_alle = [e["monat"] for e in gegner["je_abend"] if e["stand"] is not None]
+        _feldmittel_alle = [e["feld_mittelwert"] for e in gegner["je_abend"]
+                            if e["stand"] is not None]
+
+        fig_gegner_feld = go.Figure()
+        fig_gegner_feld.add_trace(go.Bar(
+            x=[e["monat"] for e in _rows_endstand],
+            y=[e["eigene_punkte"] for e in _rows_endstand],
+            name="Eigene Pkt. (Endstand)", marker=dict(color="#2171b5"),
+        ))
+        if _rows_zw:
+            fig_gegner_feld.add_trace(go.Bar(
+                x=[e["monat"] for e in _rows_zw],
+                y=[e["eigene_punkte"] for e in _rows_zw],
+                name="Eigene Pkt. (Zwischenstand)", marker=dict(color="#9ecae1"),
+            ))
+        fig_gegner_feld.add_trace(go.Scatter(
+            x=_monate_alle, y=_feldmittel_alle,
+            name="Feldmittel", mode="lines+markers",
+            line=dict(color="#e15759", width=3),
+            marker=dict(size=7),
+        ))
+        fig_gegner_feld.update_layout(
+            **PLOTLY_LAYOUT,
+            title=dict(text="Eigene Punkte und Feldmittel je Abend",
+                      font=dict(size=16)),
+            yaxis=dict(title="Punkte", gridcolor="rgba(0,0,0,0.06)"),
+            xaxis=dict(categoryorder="array", categoryarray=_monate_alle,
+                      tickfont=dict(size=11)),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                       xanchor="center", x=0.5),
+            height=CHART_H,
+        )
+        st.plotly_chart(fig_gegner_feld, width='content', config=PLOTLY_CONFIG)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 

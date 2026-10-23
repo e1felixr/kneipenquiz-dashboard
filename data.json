@@ -247,7 +247,7 @@
         "Essen/Trinken": 2,
         "Wissensch./Natur": 3
       },
-      "Datum": "2025-04-01"
+      "Datum": "2025-04-24"
     },
     {
       "Monat": "Mai 25",
@@ -277,10 +277,10 @@
         "Film/Fernsehen": 3,
         "Geschichte": 3
       },
-      "Datum": "2025-05-01"
+      "Datum": "2025-05-22"
     },
     {
-      "Datum": "2025-07-01",
+      "Datum": "2025-07-17",
       "Monat": "Jul 25",
       "Joker1": "Film/Fernsehen",
       "Joker2": "Geschichte",
@@ -337,7 +337,7 @@
         "Wissensch./Natur": 4,
         "Geographie": 3
       },
-      "Datum": "2025-09-01"
+      "Datum": "2025-09-25"
     },
     {
       "Monat": "Jan 26",
@@ -367,7 +367,7 @@
         "Geographie": 2,
         "Sport": 2
       },
-      "Datum": "2026-01-01"
+      "Datum": "2026-01-30"
     },
     {
       "Monat": "Mrz 26",
@@ -397,7 +397,7 @@
         "Geographie": 4,
         "Sport": 5
       },
-      "Datum": "2026-03-01"
+      "Datum": "2026-03-26"
     },
     {
       "Monat": "Apr 26",
@@ -427,10 +427,10 @@
         "Geographie": 4,
         "Sport": 4
       },
-      "Datum": "2026-04-01"
+      "Datum": "2026-04-23"
     },
     {
-      "Datum": "2026-05-01",
+      "Datum": "2026-05-21",
       "Monat": "Mai 26",
       "Joker1": "Aktuelles",
       "Joker2": "Sonderrunde",
@@ -460,7 +460,7 @@
       }
     },
     {
-      "Datum": "2026-07-01",
+      "Datum": "2026-07-16",
       "Monat": "Jul 26",
       "Joker1": "Aktuelles",
       "Joker2": "Musik",
@@ -490,7 +490,7 @@
       }
     },
     {
-      "Datum": "2026-09-01",
+      "Datum": "2026-09-03",
       "Monat": "Sep 26",
       "Joker1": null,
       "Joker2": null,
@@ -520,7 +520,7 @@
       }
     },
     {
-      "Datum": "2026-10-01",
+      "Datum": "2026-10-22",
       "Monat": "Okt 26",
       "Joker1": "Aktuelles",
       "Joker2": "Film/Fernsehen",
@@ -548,6 +548,23 @@
         "Sport": 2,
         "Film/Fernsehen": 3
       }
+    },
+    {
+      "Datum": "2026-11-05",
+      "Monat": "Nov 26",
+      "Geplant": true,
+      "Sonderrunde_Thema": "Pumuckl",
+      "Joker1": null,
+      "Joker2": null,
+      "Teil1": null,
+      "Teil2": null,
+      "Teil3": null,
+      "Teil4": null,
+      "Bonus": null,
+      "Gesamt": null,
+      "Pct_richtig": null,
+      "Platzierung": null,
+      "Von": null
     }
   ]
 }

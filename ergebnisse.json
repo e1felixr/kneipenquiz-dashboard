@@ -1,0 +1,868 @@
+[
+  {
+    "datei": "250424_221700.jpg",
+    "abend": "2025-04-24",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Datum aus EXIF vorgegeben (Apr 25). Letzte Zeile der Liste hat Gesamt=28, eindeutiges Minimum von 14 Teams -> Platz 14 - exakt passend zu Felix' Team (28 Pkt., Platz 14 von 14).",
+    "datum_im_bild": null,
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T06",
+        "punkte": 48
+      },
+      {
+        "platz": 1,
+        "name": "T02",
+        "punkte": 48
+      },
+      {
+        "platz": 3,
+        "name": "T35",
+        "punkte": 43
+      },
+      {
+        "platz": 4,
+        "name": "T09",
+        "punkte": 41
+      },
+      {
+        "platz": 5,
+        "name": "T07",
+        "punkte": 40
+      },
+      {
+        "platz": 6,
+        "name": "T05",
+        "punkte": 39
+      },
+      {
+        "platz": 7,
+        "name": "T21",
+        "punkte": 38
+      },
+      {
+        "platz": 8,
+        "name": "T01",
+        "punkte": 37
+      },
+      {
+        "platz": 8,
+        "name": "T12",
+        "punkte": 37
+      },
+      {
+        "platz": 10,
+        "name": "T14",
+        "punkte": 34
+      },
+      {
+        "platz": 11,
+        "name": "T17",
+        "punkte": 33
+      },
+      {
+        "platz": 12,
+        "name": "T03",
+        "punkte": 32
+      },
+      {
+        "platz": 13,
+        "name": "T34",
+        "punkte": 31
+      },
+      {
+        "platz": 14,
+        "name": "Die Neigschmecktn",
+        "punkte": 28
+      }
+    ]
+  },
+  {
+    "datei": "250522_221211.jpg",
+    "abend": "2025-05-22",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Datum aus EXIF vorgegeben (Mai 25). Zeile 'Die Neigschmecktn' hat Kumulativwerte 7|20|28|37|43 = exakt Felix' Teil1-4+Bonus (7,13,8,9,6), Platz 7 von 13 durch Sortierung der Gesamtspalte bestaetigt.",
+    "datum_im_bild": "Naechste Quiz: 26. Juni, 17. Juli (Ankuendigung der naechsten Abende, nicht das Datum dieses Abends; beide Daten fallen auf einen Donnerstag)",
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T04",
+        "punkte": 57
+      },
+      {
+        "platz": 2,
+        "name": "T32",
+        "punkte": 52
+      },
+      {
+        "platz": 3,
+        "name": "T13",
+        "punkte": 51
+      },
+      {
+        "platz": 4,
+        "name": "T06",
+        "punkte": 48
+      },
+      {
+        "platz": 5,
+        "name": "T09",
+        "punkte": 47
+      },
+      {
+        "platz": 6,
+        "name": "T01",
+        "punkte": 46
+      },
+      {
+        "platz": 7,
+        "name": "Die Neigschmecktn",
+        "punkte": 43
+      },
+      {
+        "platz": 8,
+        "name": "T02",
+        "punkte": 42
+      },
+      {
+        "platz": 9,
+        "name": "T05",
+        "punkte": 40
+      },
+      {
+        "platz": 9,
+        "name": "T03",
+        "punkte": 40
+      },
+      {
+        "platz": 11,
+        "name": "T42",
+        "punkte": 31
+      },
+      {
+        "platz": 12,
+        "name": "T07",
+        "punkte": 30
+      },
+      {
+        "platz": 12,
+        "name": "T22",
+        "punkte": 30
+      }
+    ]
+  },
+  {
+    "datei": "250717_222141.jpg",
+    "abend": "2025-07-17",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Datum aus EXIF vorgegeben (Jul 25). Team 'naigschmeggdan' mit Gesamt=28, gemeinsam mit T21 niedrigster Wert von 10 Teams - passt zu Felix' Team (28 Pkt., Platz 10 von 10, Haus zaehlt ihn als strikt letzten der beiden punktgleichen Teams).",
+    "datum_im_bild": "Naechste Quiz: 7. August (Sommer-Special), 25. September; Naechste Sonderrunde: Titanic (Film) - Ankuendigung, nicht das Datum dieses Abends; beide Termine fallen auf einen Donnerstag",
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T13",
+        "punkte": 49
+      },
+      {
+        "platz": 2,
+        "name": "T02",
+        "punkte": 44
+      },
+      {
+        "platz": 3,
+        "name": "T01",
+        "punkte": 42
+      },
+      {
+        "platz": 4,
+        "name": "T17",
+        "punkte": 39
+      },
+      {
+        "platz": 7,
+        "name": "T05",
+        "punkte": 34
+      },
+      {
+        "platz": 7,
+        "name": "T39",
+        "punkte": 34
+      },
+      {
+        "platz": 5,
+        "name": "T04",
+        "punkte": 37
+      },
+      {
+        "platz": 5,
+        "name": "T03",
+        "punkte": 37
+      },
+      {
+        "platz": 9,
+        "name": "T21",
+        "punkte": 28
+      },
+      {
+        "platz": 9,
+        "name": "Die Neigschmecktn",
+        "punkte": 28
+      }
+    ]
+  },
+  {
+    "datei": "250925_221403.jpg",
+    "abend": "2025-09-25",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Datum aus EXIF vorgegeben (Sep 25). Team 'naigschmeggdan' mit Kumulativwerten 11|20|25|34, +4 Bonus = 38 -> exakter Treffer zu Felix' Teil1-4+Bonus (11,9,5,9,4), Platz 3 von 10 durch Sortierung bestaetigt.",
+    "datum_im_bild": "Naechste Quiz: 9. Oktober, 6. November - Ankuendigung, nicht das Datum dieses Abends; beide Termine fallen auf einen Donnerstag",
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T02",
+        "punkte": 45
+      },
+      {
+        "platz": 2,
+        "name": "T04",
+        "punkte": 39
+      },
+      {
+        "platz": 3,
+        "name": "Die Neigschmecktn",
+        "punkte": 38
+      },
+      {
+        "platz": 4,
+        "name": "T01",
+        "punkte": 35
+      },
+      {
+        "platz": 4,
+        "name": "T12",
+        "punkte": 35
+      },
+      {
+        "platz": 6,
+        "name": "T14",
+        "punkte": 30
+      },
+      {
+        "platz": 7,
+        "name": "T07",
+        "punkte": 29
+      },
+      {
+        "platz": 8,
+        "name": "T19",
+        "punkte": 28
+      },
+      {
+        "platz": 9,
+        "name": "T27",
+        "punkte": 27
+      },
+      {
+        "platz": 9,
+        "name": "T31",
+        "punkte": 27
+      }
+    ]
+  },
+  {
+    "datei": "260130_000000.jpg",
+    "abend": "2026-01-30",
+    "sicherheit": "unsicher",
+    "stand": "zwischenstand",
+    "begruendung": "Digitales Board, Zwischenstand VOR Eintragung des Jokers (Joker-Spalte bei allen Teams leer). 14 Teams aktiv (passend zu Jan 26, laut Hinweis einzig 14-Team-Abend). 'Neigschmecktn' zeigt R1-4=6,11,10,9, Summe=36 - exakte Summe wie Felix' Teil1-4 fuer Jan 26 (9,9,9,9=36), aber Einzelwerte weichen deutlich vom hinterlegten Rundenbild ab; Bonus dort 0, Gesamt bliebe folglich bei 36. Gezeigter Platz 7 ist Zwischenstand, nicht der finale Platz 11 - plausibel, da andere Teams durch spaeteren Joker noch vorbeiziehen. Diese Diskrepanz bitte gegenpruefen. Nachtrag 23.10.2026: Beschieden -- der Abend bleibt als Zwischenstand VOR der Joker-Vergabe aus allen Gegner-Statistiken draussen (compute_gegner_vergleich wertet nur Endstaende). Die Abweichung der Einzelrunden ist damit gegenstandslos; die Summe 36 stimmt.",
+    "datum_im_bild": null,
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T01",
+        "punkte": 47
+      },
+      {
+        "platz": 1,
+        "name": "T04",
+        "punkte": 47
+      },
+      {
+        "platz": 3,
+        "name": "T06",
+        "punkte": 43
+      },
+      {
+        "platz": 4,
+        "name": "T05",
+        "punkte": 41
+      },
+      {
+        "platz": 5,
+        "name": "T08",
+        "punkte": 39
+      },
+      {
+        "platz": 7,
+        "name": "Die Neigschmecktn",
+        "punkte": 36
+      },
+      {
+        "platz": 6,
+        "name": "T23",
+        "punkte": 37
+      },
+      {
+        "platz": 8,
+        "name": "T07",
+        "punkte": 35
+      },
+      {
+        "platz": 9,
+        "name": "T19",
+        "punkte": 34
+      },
+      {
+        "platz": 9,
+        "name": "T03",
+        "punkte": 34
+      },
+      {
+        "platz": 11,
+        "name": "T28",
+        "punkte": 32
+      },
+      {
+        "platz": 11,
+        "name": "T38",
+        "punkte": 32
+      },
+      {
+        "platz": 13,
+        "name": "T16",
+        "punkte": 26
+      },
+      {
+        "platz": 14,
+        "name": "T14",
+        "punkte": 0
+      }
+    ]
+  },
+  {
+    "datei": "260326_000000.jpg",
+    "abend": "2026-03-26",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Digitales Board. Team 'Neigschmecktn': R1-4=9,7,10,12, Joker=4, Gesamt=42, Platz 8 - exakter Treffer in allen sieben Werten zu Felix' Mrz 26 (Teil1-4 9,7,10,12, Bonus 4, Gesamt 42, Platz 8 von 15).",
+    "datum_im_bild": null,
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T04",
+        "punkte": 51
+      },
+      {
+        "platz": 2,
+        "name": "T10",
+        "punkte": 50
+      },
+      {
+        "platz": 3,
+        "name": "T19",
+        "punkte": 49
+      },
+      {
+        "platz": 3,
+        "name": "T08",
+        "punkte": 49
+      },
+      {
+        "platz": 5,
+        "name": "T02",
+        "punkte": 48
+      },
+      {
+        "platz": 6,
+        "name": "T01",
+        "punkte": 46
+      },
+      {
+        "platz": 7,
+        "name": "T05",
+        "punkte": 45
+      },
+      {
+        "platz": 8,
+        "name": "T03",
+        "punkte": 42
+      },
+      {
+        "platz": 8,
+        "name": "Die Neigschmecktn",
+        "punkte": 42
+      },
+      {
+        "platz": 8,
+        "name": "T43",
+        "punkte": 42
+      },
+      {
+        "platz": 8,
+        "name": "T12",
+        "punkte": 42
+      },
+      {
+        "platz": 12,
+        "name": "T37",
+        "punkte": 39
+      },
+      {
+        "platz": 13,
+        "name": "T16",
+        "punkte": 33
+      },
+      {
+        "platz": 14,
+        "name": "T25",
+        "punkte": 30
+      },
+      {
+        "platz": 15,
+        "name": "T24",
+        "punkte": 24
+      }
+    ]
+  },
+  {
+    "datei": "260423_000000.jpg",
+    "abend": "2026-04-23",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Digitales Board, 16 Teams. 'Neigschmecktn': R1=7, R3=7, R4=12, Joker=8 exakt wie Felix' Apr 26 (Teil1=7,Teil3=7,Teil4=12,Bonus=8); nur R2 liest sich als 10 statt 9, dadurch Gesamt 44/Platz 6 statt hinterlegter 43/Platz 7 - schluessig als einzelne Fehllesung einer Ziffer (9 vs. 10) erklaerbar, vier von fuenf Werten und Platzspalte sonst konsistent. Nachtrag 23.10.2026: Der Abgleich gab der Tafel recht -- nicht das Foto war falsch gelesen, sondern die Erfassung. data.json fuehrt seither 44 Punkte auf Platz 6; der fehlende Punkt in Teil 2 (9 -> 10) wurde Wissensch./Natur zugeschrieben.",
+    "datum_im_bild": null,
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T04",
+        "punkte": 52
+      },
+      {
+        "platz": 2,
+        "name": "T09",
+        "punkte": 48
+      },
+      {
+        "platz": 2,
+        "name": "T01",
+        "punkte": 48
+      },
+      {
+        "platz": 4,
+        "name": "T03",
+        "punkte": 46
+      },
+      {
+        "platz": 5,
+        "name": "T11",
+        "punkte": 45
+      },
+      {
+        "platz": 6,
+        "name": "T06",
+        "punkte": 44
+      },
+      {
+        "platz": 6,
+        "name": "Die Neigschmecktn",
+        "punkte": 44
+      },
+      {
+        "platz": 8,
+        "name": "T08",
+        "punkte": 43
+      },
+      {
+        "platz": 9,
+        "name": "T02",
+        "punkte": 39
+      },
+      {
+        "platz": 9,
+        "name": "T12",
+        "punkte": 39
+      },
+      {
+        "platz": 11,
+        "name": "T10",
+        "punkte": 38
+      },
+      {
+        "platz": 12,
+        "name": "T07",
+        "punkte": 36
+      },
+      {
+        "platz": 12,
+        "name": "T05",
+        "punkte": 36
+      },
+      {
+        "platz": 14,
+        "name": "T44",
+        "punkte": 35
+      },
+      {
+        "platz": 15,
+        "name": "T17",
+        "punkte": 29
+      },
+      {
+        "platz": 16,
+        "name": "T24",
+        "punkte": 23
+      }
+    ]
+  },
+  {
+    "datei": "260521_000000.jpg",
+    "abend": "2026-05-21",
+    "sicherheit": "sicher",
+    "stand": "zwischenstand",
+    "begruendung": "Digitales Board, Zwischenstand VOR Eintragung des Jokers (Joker-Spalte bei mehreren Teams leer, u.a. bei 'Neigschmecktn'). R1-4 von 'Neigschmecktn' = 12,7,13,8 - exakter Treffer zu Felix' Teil1-4 fuer Mai 26 (12,7,13,8); mit noch fehlendem Bonus von 7 ergibt sich das bekannte Endergebnis 47 Pkt./Platz 1. Gezeigter Zwischenstand (40 Pkt., Platz 5) ist NICHT final. 11 Teams aktiv, passend zu Mai 26 (laut Hinweis einzig 11-Team-Abend).",
+    "datum_im_bild": null,
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T04",
+        "punkte": 43
+      },
+      {
+        "platz": 1,
+        "name": "T03",
+        "punkte": 43
+      },
+      {
+        "platz": 3,
+        "name": "T15",
+        "punkte": 41
+      },
+      {
+        "platz": 3,
+        "name": "T08",
+        "punkte": 41
+      },
+      {
+        "platz": 5,
+        "name": "T05",
+        "punkte": 40
+      },
+      {
+        "platz": 5,
+        "name": "Die Neigschmecktn",
+        "punkte": 40
+      },
+      {
+        "platz": 7,
+        "name": "T18",
+        "punkte": 39
+      },
+      {
+        "platz": 7,
+        "name": "T02",
+        "punkte": 39
+      },
+      {
+        "platz": 9,
+        "name": "T10",
+        "punkte": 38
+      },
+      {
+        "platz": 10,
+        "name": "T01",
+        "punkte": 36
+      },
+      {
+        "platz": 11,
+        "name": "T06",
+        "punkte": 35
+      }
+    ]
+  },
+  {
+    "datei": "260716_000000.jpg",
+    "abend": "2026-07-16",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Digitales Board. Team 'Die Neigschmeckt'n': R1-3+Joker (6,6,6,4) und Platz (12) exakt wie Felix' Jul 26; R4/Gesamt lesen sich als 7/29 statt hinterlegter 8/30 - einzelne Ziffer vermutlich falsch gelesen (7 statt 8), uebrige vier Werte und Teamzahl (15) passen exakt. Nachtrag 23.10.2026: Auch hier behielt die Tafel recht. Felix hat die Runde nachgerechnet -- Teil 4 bestand aus 3+2+2, der Punkt zu viel sass bei Geschichte. data.json fuehrt seither Teil 4 = 7 und Gesamt 29.",
+    "datum_im_bild": null,
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T13",
+        "punkte": 47
+      },
+      {
+        "platz": 2,
+        "name": "T18",
+        "punkte": 45
+      },
+      {
+        "platz": 3,
+        "name": "T06",
+        "punkte": 44
+      },
+      {
+        "platz": 4,
+        "name": "T01",
+        "punkte": 42
+      },
+      {
+        "platz": 5,
+        "name": "T08",
+        "punkte": 41
+      },
+      {
+        "platz": 5,
+        "name": "T11",
+        "punkte": 41
+      },
+      {
+        "platz": 7,
+        "name": "T02",
+        "punkte": 40
+      },
+      {
+        "platz": 8,
+        "name": "T09",
+        "punkte": 39
+      },
+      {
+        "platz": 9,
+        "name": "T07",
+        "punkte": 37
+      },
+      {
+        "platz": 10,
+        "name": "T04",
+        "punkte": 35
+      },
+      {
+        "platz": 11,
+        "name": "T03",
+        "punkte": 33
+      },
+      {
+        "platz": 12,
+        "name": "Die Neigschmecktn",
+        "punkte": 29
+      },
+      {
+        "platz": 13,
+        "name": "T22",
+        "punkte": 28
+      },
+      {
+        "platz": 14,
+        "name": "T33",
+        "punkte": 26
+      },
+      {
+        "platz": 15,
+        "name": "T05",
+        "punkte": 25
+      }
+    ]
+  },
+  {
+    "datei": "260903_000000.jpg",
+    "abend": "2026-09-03",
+    "sicherheit": "unsicher",
+    "stand": "endstand",
+    "begruendung": "Digitales Board, 15 Teams; Joker-Spalte fuer ALLE Teams leer ('.' in der Durchschnittszeile) - einzig Sep 26 hat laut Datengrundlage keine Joker-Kategorien (Joker1/Joker2=null, Bonus=0), was stark fuer diesen Abend spricht. Exakte Punkt-/Platz-Bestaetigung misslingt jedoch: Lesung zeigt 'Die Neigschmeckten' mit Platz 6/39 Pkt. statt hinterlegter Platz 5/35 Pkt., zudem widersprechen sich mehrere Platz-Werte in der Tabelle selbst (z.B. zwei Teams mit Platz 2). Ein haengendes Kabel und Spiegelungen verdecken Teile der Tabelle, vermutlich zusaetzlich ein Zeilen-Versatz wie bei anderen TV-Aufnahmen. Bitte gegenpruefen. Nachtrag 23.10.2026: Gegengeprueft. Die Aufnahme wurde wegen des schraegen Winkels neu gelesen und die Zeilen neu zugeordnet -- die oben genannte Lesung (Platz 6 / 39 Pkt.) war ein Versatz-Artefakt, die Teamliste unten gibt die korrigierte Lesung wieder. Die scheinbar widerspruechlichen Platzziffern sind echte Gleichstaende (43/43, 35/35, 33/33, 31/31). Hier irrte also die Tafellesung, nicht die Erfassung: data.json bleibt bei 35 Punkten auf Platz 5.",
+    "datum_im_bild": null,
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T11",
+        "punkte": 44
+      },
+      {
+        "platz": 7,
+        "name": "T10",
+        "punkte": 33
+      },
+      {
+        "platz": 9,
+        "name": "T29",
+        "punkte": 31
+      },
+      {
+        "platz": 9,
+        "name": "T15",
+        "punkte": 31
+      },
+      {
+        "platz": 2,
+        "name": "T08",
+        "punkte": 43
+      },
+      {
+        "platz": 4,
+        "name": "T02",
+        "punkte": 39
+      },
+      {
+        "platz": 2,
+        "name": "T06",
+        "punkte": 43
+      },
+      {
+        "platz": 5,
+        "name": "Die Neigschmecktn",
+        "punkte": 35
+      },
+      {
+        "platz": 11,
+        "name": "T30",
+        "punkte": 30
+      },
+      {
+        "platz": 13,
+        "name": "T16",
+        "punkte": 24
+      },
+      {
+        "platz": 14,
+        "name": "T41",
+        "punkte": 21
+      },
+      {
+        "platz": 15,
+        "name": "T26",
+        "punkte": 19
+      },
+      {
+        "platz": 5,
+        "name": "T20",
+        "punkte": 35
+      },
+      {
+        "platz": 12,
+        "name": "T36",
+        "punkte": 29
+      },
+      {
+        "platz": 7,
+        "name": "T05",
+        "punkte": 33
+      }
+    ]
+  },
+  {
+    "datei": "261022_000000.jpg",
+    "abend": "2026-10-22",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Digitales Board (TV-Anzeige). Team 'Die Neigschmeckten' mit R1-4=9,9,9,7, Joker=6, Gesamt=40 - exakter Treffer zu Felix' Teil1-4+Bonus (9,9,9,7,6=40), Platz 8 (3er-Pasch bei 40 Pkt.) von 16 Teams. Zeilen und Platzspalte wirkten zunaechst um eine Position verschoben (typisches Parallaxe-Artefakt bei schraeg fotografierten Bildschirmen); nach Korrektur stimmt die Durchschnittszeile am unteren Rand rechnerisch.",
+    "datum_im_bild": null,
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T11",
+        "punkte": 50
+      },
+      {
+        "platz": 2,
+        "name": "T18",
+        "punkte": 49
+      },
+      {
+        "platz": 3,
+        "name": "T02",
+        "punkte": 48
+      },
+      {
+        "platz": 3,
+        "name": "T06",
+        "punkte": 48
+      },
+      {
+        "platz": 5,
+        "name": "T04",
+        "punkte": 44
+      },
+      {
+        "platz": 6,
+        "name": "T20",
+        "punkte": 43
+      },
+      {
+        "platz": 7,
+        "name": "T08",
+        "punkte": 41
+      },
+      {
+        "platz": 8,
+        "name": "Die Neigschmecktn",
+        "punkte": 40
+      },
+      {
+        "platz": 8,
+        "name": "T09",
+        "punkte": 40
+      },
+      {
+        "platz": 8,
+        "name": "T03",
+        "punkte": 40
+      },
+      {
+        "platz": 11,
+        "name": "T10",
+        "punkte": 37
+      },
+      {
+        "platz": 11,
+        "name": "T15",
+        "punkte": 37
+      },
+      {
+        "platz": 11,
+        "name": "T01",
+        "punkte": 37
+      },
+      {
+        "platz": 14,
+        "name": "T07",
+        "punkte": 36
+      },
+      {
+        "platz": 15,
+        "name": "T40",
+        "punkte": 31
+      },
+      {
+        "platz": 16,
+        "name": "T23",
+        "punkte": 28
+      }
+    ]
+  }
+]

@@ -10,6 +10,7 @@ import pathlib
 import shutil
 import sys
 import tempfile
+from calendar import monthrange
 from datetime import datetime
 
 
@@ -50,6 +51,18 @@ def _user_data_dir() -> pathlib.Path:
 _PROJEKT_DIR = _project_dir()
 DATA_PATH = ((_PROJEKT_DIR / "data.json") if _PROJEKT_DIR is not None
              else (_user_data_dir() / "data.json"))
+
+# ergebnisse.json liegt aus demselben Grund wie data.json im Projektordner
+# (siehe Kommentar oben): es ist die anonymisierte Gegner-Datenbasis, die
+# ebenfalls mitversioniert wird. Der zugehoerige Klarnamen-Schluessel
+# (_teamnamen_schluessel.json) bleibt bewusst aussen vor -- er ist nicht
+# oeffentlich und wird von diesem Modul nicht geladen.
+ERGEBNISSE_PATH = ((_PROJEKT_DIR / "ergebnisse.json") if _PROJEKT_DIR is not None
+                   else (_user_data_dir() / "ergebnisse.json"))
+
+# So erscheint das eigene Team in ergebnisse.json -- im Unterschied zu allen
+# Gegnern, die dort nur als Kennung (z.B. "T01") stehen.
+EIGENER_TEAMNAME_ANONYM = "Die Neigschmecktn"
 
 # Einmalige Migration von den frueheren Speicherorten, jung zuerst:
 # %LOCALAPPDATA% (v0.6.1 bis v0.8.0), dann %APPDATA%\Roaming (v0.5.0 bis
@@ -189,14 +202,51 @@ def load_data():
     return data
 
 
+def load_ergebnisse():
+    """Laedt ergebnisse.json (anonymisierte Gegner-Ergebnislisten je Abend).
+
+    Fehlt die Datei (z.B. in einer frischen Arbeitskopie ohne Checkout der
+    Zusatzdaten), liefert die Funktion eine leere Liste statt eines Fehlers
+    -- compute_gegner_vergleich() kommt mit einer leeren Gegner-Basis klar
+    und liefert dann fuer jeden Abend "keine Ergebnisliste vorhanden".
+    """
+    if not ERGEBNISSE_PATH.exists():
+        return []
+    with ERGEBNISSE_PATH.open("r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def gespielte_abende(nights):
+    """Filtert eine Liste von Abenden auf die tatsaechlich gespielten.
+
+    Ein Abend mit "Geplant": True ist eine vorab angelegte Huelle fuer einen
+    noch nicht gespielten Termin (siehe CLAUDE.md-Auftrag "Geplante Abende") --
+    er traegt noch keine Ergebnisse und darf in keiner Auswertung mitzaehlen,
+    sonst wuerde eine Nullrunde jeden Mittelwert, jede Quote und jede
+    Kategorie-Bilanz verzerren. Fehlt das Feld (alle bisherigen Abende vor
+    dieser Funktion), gilt der Abend als gespielt. DIES ist die einzige
+    Stelle, die "Geplant" abfragt -- jede Auswertung filtert ausschliesslich
+    ueber diese Funktion, damit kein verstreutes if-Flickwerk entsteht.
+    """
+    return [n for n in nights if not n.get("Geplant", False)]
+
+
 def save_data(quiz_nights):
-    """Sortiert die Abende, regeneriert Aggregat-Bloecke und schreibt data.json atomar."""
+    """Sortiert die Abende, regeneriert Aggregat-Bloecke und schreibt data.json atomar.
+
+    "quiz_nights" im Payload traegt ALLE Abende, auch geplante -- sie duerfen
+    nicht aus der Datei verschwinden. Die abgeleiteten Bloecke "months" und
+    "categories" zaehlen dagegen nur gespielte Abende (gespielte_abende),
+    sonst stuende ein geplanter Abend als Nullrunde in jedem Kategorie-
+    Mittelwert und jeder Monatsspalte.
+    """
     sorted_nights = sorted(
         quiz_nights,
         key=lambda n: n.get("Datum") or parse_monat_to_iso(n.get("Monat", "Jan 00")),
     )
-    months = [n["Monat"] for n in sorted_nights if "Monat" in n]
-    categories = compute_categories(sorted_nights, months)
+    gespielt = gespielte_abende(sorted_nights)
+    months = [n["Monat"] for n in gespielt if "Monat" in n]
+    categories = compute_categories(gespielt, months)
     payload = {
         "months": months,
         "categories": categories,
@@ -261,7 +311,18 @@ def quiznight_from_form(form):
     year = form["year"]
     month = form["month"]
     monat = format_monat(year, month)
-    datum = f"{year:04d}-{month:02d}-01"
+
+    # "day" ist seit v0.11.0 im Formular eingebbar (Spinbox "Termin"). Fehlt
+    # er oder ist er leer, bleibt es beim Monatsersten wie zuvor -- der Wert
+    # dient als Sortier- und Verknuepfungsschluessel (ergebnisse.json) und
+    # darf nie None werden. Ein zu grosser Tag wird auf das Monatsende
+    # geklemmt, statt ein ungueltiges ISO-Datum wie '2026-02-31' zu bilden.
+    day = form.get("day") or 1
+    try:
+        day = max(1, min(int(day), monthrange(year, month)[1]))
+    except (TypeError, ValueError):
+        day = 1
+    datum = f"{year:04d}-{month:02d}-{day:02d}"
 
     teile = form["teile"]
     teil_sums = [sum(slot["punkte"] for slot in block) for block in teile]
@@ -302,6 +363,9 @@ def quiznight_from_form(form):
 def compute_dashboard_data(quiz_nights):
     """Aggregiert KPIs und Plotdaten fuer den Dashboard-Reiter.
 
+    Filtert zuerst ueber gespielte_abende() -- geplante Abende (noch ohne
+    Ergebnis) fliessen in keine Kennzahl und kein Diagramm ein.
+
     Bei leerer Eingabe liefert die Funktion ein dict mit leeren Listen
     und None-Werten -- die GUI muss damit umgehen koennen.
 
@@ -319,6 +383,9 @@ def compute_dashboard_data(quiz_nights):
       "scatter"  -> list[(kategorie, mittelwert, std)] OHNE 'Sonderrunde'
     """
     from statistics import mean, pstdev
+
+    # Geplante Abende zaehlen in keiner Auswertung mit (gespielte_abende).
+    quiz_nights = gespielte_abende(quiz_nights)
 
     # --- Edge case: leere Eingabe ---
     if not quiz_nights:
@@ -536,6 +603,9 @@ def _classify_theme(thema):
 def compute_insights(quiz_nights):
     """Leitet strukturierte Beobachtungen und Empfehlungen aus den Quizabenden ab.
 
+    Filtert zuerst ueber gespielte_abende() -- ein geplanter Abend (noch
+    ohne Ergebnis) taucht in keiner Beobachtung auf.
+
     Rueckgabe: Liste von Sektionen, jede ein dict mit:
       "titel": str
       "lead":  str | None  (optionaler Einleitungssatz unter dem Titel)
@@ -544,6 +614,9 @@ def compute_insights(quiz_nights):
     Bei leerer Eingabe: leere Liste.
     """
     from statistics import mean, pstdev
+
+    # Geplante Abende zaehlen in keiner Auswertung mit (gespielte_abende).
+    quiz_nights = gespielte_abende(quiz_nights)
 
     if not quiz_nights:
         return []
@@ -830,3 +903,220 @@ def compute_insights(quiz_nights):
     sections.append({"titel": "Ausblick", "lead": None, "items": items})
 
     return sections
+
+
+def compute_gegner_vergleich(quiz_nights, ergebnisse, mindest_gemeinsame_abende=3):
+    """Vergleicht die eigenen Abende mit den erfassten Ergebnislisten der
+    Konkurrenz aus ergebnisse.json (siehe load_ergebnisse()).
+
+    quiz_nights -- eigene Abende wie von load_data()["quiz_nights"];
+        massgeblich fuer das Datum und die data.json-Platzierung je Abend.
+        Wird zuerst ueber gespielte_abende() gefiltert -- ein geplanter
+        Abend hat noch keine Ergebnisliste und darf nirgends mitzaehlen.
+    ergebnisse  -- wie von load_ergebnisse(): Liste von Abend-Eintraegen
+        mit "abend" (ISO-Datum), "stand" ("endstand"/"zwischenstand") und
+        "teams" (Liste von {"name", "punkte"}; Gegner als Kennung "T01"
+        usw., das eigene Team als EIGENER_TEAMNAME_ANONYM).
+    mindest_gemeinsame_abende -- ab wie vielen gemeinsamen Endstand-Abenden
+        eine Gegnerbilanz als aussagekraeftig gilt (Standard 3, siehe
+        CLAUDE-Auftrag "nur Teams mit mindestens drei gemeinsamen Abenden
+        sind aussagekraeftig -- gib die Schwelle als Parameter"). Alle
+        Gegner werden trotzdem mit ihren Rohzahlen ausgegeben.
+
+    Fehlt zu einem gespielten Abend ein Eintrag in ergebnisse (kein Datum-
+    Treffer, oder die eigene Zeile fehlt/hat keine Punktzahl), wird dieser
+    Abend bei den Gegner-abhaengigen Feldern uebersprungen statt geraten
+    -- er erscheint unter "je_abend" mit "stand": None und allen anderen
+    Feldern auf None.
+
+    Manche Abende liegen nur als Zwischenstand VOR der Joker-Vergabe vor
+    ("stand": "zwischenstand" in ergebnisse.json, z.B. Jan 26 und Mai 26:
+    die Joker-Spalte war beim Fotografieren noch leer). Ihre Punkte sind
+    fuer ALLE Teams niedriger als am Ende des Abends -- nicht nur fuer uns
+    -- und wuerden die Konkurrenz systematisch zu schwach ausweisen. Sie
+    fliessen deshalb NICHT in "trend", "gegnerbilanz" oder
+    "einordnung_platzierungen" ein; "je_abend" zeigt sie trotzdem (mit
+    "stand": "zwischenstand") zur Transparenz.
+
+    Rang/Platz wird nirgends aus einer evtl. in ergebnisse.json notierten
+    Platzziffer gelesen, sondern ausschliesslich direkt aus "punkte"
+    berechnet (Siegerpunkte, Feldmittel, Position in Prozent) -- die
+    Tafel-Platzspalte ist nachweislich nicht durchgaengig zuverlaessig
+    (siehe Projekt-Notizen vom 23.10.2026: handschriftliche Tafeln 2025
+    fuehren gar keine eigene Rangspalte, digitale Tafeln teils eine durch
+    Aufnahmewinkel verschobene).
+
+    Rueckgabe: dict mit
+      "je_abend" -> Liste je gespielten Abend (siehe Felder oben; bei
+          vorhandener Ergebnisliste zusaetzlich "teams_anzahl",
+          "eigene_punkte", "siegerpunkte", "abstand_spitze"
+          [Siegerpunkte - eigene Punkte], "feld_mittelwert",
+          "feld_median", "abstand_mittel" [Feldmittel - eigene Punkte],
+          "position_pct" [Anteil des Feldes mit weniger Punkten als wir,
+          0-100, 100 = allein an der Spitze], "platzierung_dj"/"von_dj"
+          [aus data.json, nur zur Einordnung])
+      "trend" -> dict mit "monate", "abstand_spitze", "abstand_mittel",
+          "feldstaerke" (Feldmittel des Abends minus Feldmittel ueber alle
+          Endstand-Abende -- positiv heisst, das Feld war staerker als im
+          Schnitt), je Liste nur ueber Endstand-Abende, chronologisch
+      "gegnerbilanz" -> dict Kennung -> {"gemeinsame_abende", "vor_uns",
+          "hinter_uns", "gleichstand", "punktabstand_mittel" [Gegner
+          minus wir, positiv heisst Gegner im Schnitt vorn],
+          "aussagekraeftig"}, nur ueber Endstand-Abende
+      "einordnung_platzierungen" -> Liste je Endstand-Abend mit
+          "abstand_spitze", "abstand_mittel", "z_score" [eigene Punkte
+          minus Feldmittel, geteilt durch die Streuung des Feldes an
+          diesem Abend] und "einstufung" ("stark"/"durchschnittlich"/
+          "schwach", Schwelle |z| >= 0,5)
+      "meta" -> Zaehlwerte: "abende_gespielt", "abende_endstand",
+          "abende_zwischenstand", "abende_ohne_ergebnisliste",
+          "mindest_gemeinsame_abende"
+    """
+    from statistics import mean, median, pstdev
+
+    gespielt = gespielte_abende(quiz_nights)
+    ergebnisse_by_abend = {e["abend"]: e for e in ergebnisse if e.get("abend")}
+
+    je_abend = []
+    endstand_monate = []
+    endstand_feldmittel = []
+    endstand_abstand_spitze = []
+    endstand_abstand_mittel = []
+    gegner_acc = {}
+    einordnung = []
+
+    for night in gespielt:
+        monat = night.get("Monat")
+        datum = night.get("Datum") or parse_monat_to_iso(night.get("Monat", "Jan 00"))
+        eintrag = ergebnisse_by_abend.get(datum)
+
+        eintrag_result = {
+            "monat": monat,
+            "abend": datum,
+            "stand": None,
+            "teams_anzahl": None,
+            "eigene_punkte": None,
+            "siegerpunkte": None,
+            "abstand_spitze": None,
+            "feld_mittelwert": None,
+            "feld_median": None,
+            "abstand_mittel": None,
+            "position_pct": None,
+            "platzierung_dj": night.get("Platzierung"),
+            "von_dj": night.get("Von"),
+        }
+
+        if eintrag is not None:
+            teams = eintrag.get("teams", [])
+            eigene = next(
+                (t for t in teams if t.get("name") == EIGENER_TEAMNAME_ANONYM),
+                None,
+            )
+            if eigene is not None and eigene.get("punkte") is not None:
+                eigene_punkte = eigene["punkte"]
+                bekannte_punkte = [t["punkte"] for t in teams
+                                   if t.get("punkte") is not None]
+                n_bekannt = len(bekannte_punkte)
+                siegerpunkte = max(bekannte_punkte)
+                feld_mittel = mean(bekannte_punkte)
+                feld_med = median(bekannte_punkte)
+                schlechter_als_wir = sum(1 for p in bekannte_punkte
+                                          if p < eigene_punkte)
+                position_pct = (100.0 * schlechter_als_wir / (n_bekannt - 1)
+                                 if n_bekannt > 1 else None)
+                stand = eintrag.get("stand", "endstand")
+
+                eintrag_result.update({
+                    "stand": stand,
+                    "teams_anzahl": len(teams),
+                    "eigene_punkte": eigene_punkte,
+                    "siegerpunkte": siegerpunkte,
+                    "abstand_spitze": siegerpunkte - eigene_punkte,
+                    "feld_mittelwert": feld_mittel,
+                    "feld_median": feld_med,
+                    "abstand_mittel": feld_mittel - eigene_punkte,
+                    "position_pct": position_pct,
+                })
+
+                if stand == "endstand":
+                    endstand_monate.append(monat)
+                    endstand_feldmittel.append(feld_mittel)
+                    endstand_abstand_spitze.append(eintrag_result["abstand_spitze"])
+                    endstand_abstand_mittel.append(eintrag_result["abstand_mittel"])
+
+                    for t in teams:
+                        if (t.get("name") == EIGENER_TEAMNAME_ANONYM
+                                or t.get("punkte") is None):
+                            continue
+                        acc = gegner_acc.setdefault(t["name"], {
+                            "abende": 0, "vor_uns": 0, "hinter_uns": 0,
+                            "gleichstand": 0, "diffs": [],
+                        })
+                        acc["abende"] += 1
+                        diff = t["punkte"] - eigene_punkte
+                        acc["diffs"].append(diff)
+                        if diff > 0:
+                            acc["vor_uns"] += 1
+                        elif diff < 0:
+                            acc["hinter_uns"] += 1
+                        else:
+                            acc["gleichstand"] += 1
+
+                    streuung = pstdev(bekannte_punkte) if n_bekannt >= 2 else 0.0
+                    z = ((eigene_punkte - feld_mittel) / streuung
+                         if streuung > 0 else 0.0)
+                    if z >= 0.5:
+                        einstufung = "stark"
+                    elif z <= -0.5:
+                        einstufung = "schwach"
+                    else:
+                        einstufung = "durchschnittlich"
+                    einordnung.append({
+                        "monat": monat,
+                        "abend": datum,
+                        "platzierung_dj": night.get("Platzierung"),
+                        "von_dj": night.get("Von"),
+                        "abstand_spitze": eintrag_result["abstand_spitze"],
+                        "abstand_mittel": eintrag_result["abstand_mittel"],
+                        "z_score": z,
+                        "einstufung": einstufung,
+                    })
+
+        je_abend.append(eintrag_result)
+
+    gesamt_feldmittel = mean(endstand_feldmittel) if endstand_feldmittel else None
+    trend = {
+        "monate": endstand_monate,
+        "abstand_spitze": endstand_abstand_spitze,
+        "abstand_mittel": endstand_abstand_mittel,
+        "feldstaerke": ([fm - gesamt_feldmittel for fm in endstand_feldmittel]
+                        if gesamt_feldmittel is not None else []),
+    }
+
+    gegnerbilanz = {
+        kennung: {
+            "gemeinsame_abende": acc["abende"],
+            "vor_uns": acc["vor_uns"],
+            "hinter_uns": acc["hinter_uns"],
+            "gleichstand": acc["gleichstand"],
+            "punktabstand_mittel": mean(acc["diffs"]),
+            "aussagekraeftig": acc["abende"] >= mindest_gemeinsame_abende,
+        }
+        for kennung, acc in gegner_acc.items()
+    }
+
+    return {
+        "je_abend": je_abend,
+        "trend": trend,
+        "gegnerbilanz": gegnerbilanz,
+        "einordnung_platzierungen": einordnung,
+        "meta": {
+            "abende_gespielt": len(gespielt),
+            "abende_endstand": len(endstand_monate),
+            "abende_zwischenstand": sum(1 for e in je_abend
+                                        if e["stand"] == "zwischenstand"),
+            "abende_ohne_ergebnisliste": sum(1 for e in je_abend
+                                             if e["stand"] is None),
+            "mindest_gemeinsame_abende": mindest_gemeinsame_abende,
+        },
+    }

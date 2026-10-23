@@ -2,6 +2,28 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
+## v0.11.0 (23.10.2026, 20:47 Uhr)
+
+### Neu
+
+- **Vierter Reiter „Gegner" — wie das eigene Ergebnis im Feld steht.** Grundlage sind die Ergebnistafeln von neun der elf Abende, ausgelesen aus den Fotos unter `Y:\2028 Kneipenquiz\Gesamtergebnisse`: 62 erfasste Schreibweisen, von Hand auf **45 Teams** zusammengeführt (Verschreiber, Groß- und Kleinschreibung, gekürzte und erweiterte Fassungen desselben Namens; sechs Zusammenlegungen hat Felix einzeln entschieden). Der Reiter zeigt je Abend den Rückstand zur Spitze, das Feldmittel, den Abstand dazu und eine Einstufung über den z-Wert (stark / durchschnittlich / schwach ab \|z\| ≥ 0,5), dazu eine Gegnerbilanz mit gemeinsamen Abenden, Siegen, Niederlagen und mittlerem Punktabstand. Zwei Abende — Jan 26 und Mai 26 — liegen nur als Zwischenstand **vor** der Joker-Vergabe vor; sie würden das ganze Feld systematisch zu schwach ausweisen und bleiben deshalb aus Trend, Bilanz und Einordnung draußen, erscheinen in der Tabelle aber grau mit Strichen.
+- **Derselbe Vergleich im Web-Dashboard**, dort ausschließlich mit den Kennungen `T01` bis `T44`. Der Klarnamen-Schlüssel bleibt lokal und wird von `app.py` nicht eingelesen — das Repo ist öffentlich.
+- **Ein Abend lässt sich vorab anlegen**, ehe er gespielt ist (Feld `Geplant`). Er steht in der Übersicht mit dem Zusatz „(geplant)" und zählt in **keiner** Auswertung mit — nicht in den Kennzahlen, nicht in den Kategorie-Mittelwerten, nicht im Gegner-Vergleich. Gegenprobe gelaufen: Mit und ohne den Eintrag für den 05.11.2026 („Pumuckl") liefern alle Kennzahlen und Erkenntnisse identische Werte.
+- **Der Termin trägt jetzt einen Tag.** Das Eingabefeld heißt „Termin" und erfasst Tag, Monat und Jahr in deutscher Leserichtung; bisher schrieb das Formular hart den Monatsersten. Die elf gespielten Abende tragen seither ihr echtes Datum (24.04., 22.05., 17.07., 25.09.2025 sowie 30.01., 26.03., 23.04., 21.05., 16.07., 03.09. und 22.10.2026) — alles Donnerstage bis auf den 30.01.2026, der auf einen Freitag fiel. Quelle sind die Dateinamen der Ergebnisfotos. Das Datum ist dabei mehr als Zierde: Es verknüpft jeden Abend mit seiner Ergebnisliste und dient beim Bearbeiten und Löschen als Schlüssel.
+
+### Verbessert
+
+- **Die Vollansicht eines Diagramms vergrößert jetzt auch die Schrift.** Zuvor wuchs allein die Zeichenfläche auf das Vierfache, während Titel, Achsen und Werte in ihrer Rastergröße stehenblieben und darin verloren wirkten. Gelöst über die Figure-DPI (100 → 140): Mit ihr wachsen Schrift, Linienstärken und Marker gemeinsam, ohne dass die neunzehn einzeln gesetzten Schriftgrößen der vier Diagramme in zwei Fassungen gepflegt werden müssten. Zugleich werden die Ränder nachgezogen — sie sind in Anteilen der Figur bemessen und beanspruchten in der Vollansicht deshalb die doppelte Pixelzahl. Gemessen an der Heatmap bei 1852 × 909 px: links 113 px und unten 56 px zurück an die Zeichenfläche, die damit von 58 auf 71 Prozent der Figur wächst.
+
+### Behoben
+
+- **Die Zahlen in der Punkte-Heatmap sind auf dunklen Feldern wieder lesbar** (Eingabe-GUI und Web-Dashboard). Die Farbskala RdYlBu läuft an **beiden** Enden ins Dunkle — 0 Punkte in tiefem Blau, 5 Punkte in tiefem Rot —, die Ziffern standen aber durchgehend im dunklen Grau `#374151` und verschwanden dort fast. Ausgerechnet die aussagekräftigsten Felder waren betroffen: die perfekte Runde und der Totalausfall. Die Schriftfarbe richtet sich nun nach der Helligkeit der Zelle.
+
+### Intern
+
+- Die Ergebnislisten (`ergebnisse.json`) tragen zu vier Abenden einen **Nachtrag vom 23.10.2026**: Apr 26 und Jul 26 begründeten ihre Lesung noch gegen die inzwischen korrigierten Werte — in beiden Fällen behielt die Tafel recht, nicht die Erfassung. Bei Sep 26 war die Abweichung ein Versatz-Artefakt des schrägen Aufnahmewinkels; die scheinbar widersprüchlichen Platzziffern sind echte Gleichstände. Bei Jan 26 ist die offene Rückfrage beschieden: Der Abend bleibt als Zwischenstand draußen. Die ursprünglichen Befunde bleiben stehen — die Begründung ist das Protokoll der Auswertung, nicht ihr Ergebnis.
+- Die Ergebnisfotos sind aussortiert: Von 19 Aufnahmen über elf Abende waren sieben Mehrfachaufnahmen desselben Abends (Sep 25 allein fünfmal). Sie liegen nun unter `_dubletten\` statt gelöscht zu sein — das Netzlaufwerk kennt keinen Papierkorb. `260130_000001.jpg` bleibt im Hauptordner: Es ist keine Dublette, sondern ein **zweiter** Zwischenstand desselben Abends. Die Rohdatei führt zu jeder Aufnahme ihren Ablageort und verweist nicht mehr auf den Dateinamen vor der Umbenennung.
+
 ## v0.10.0 (23.10.2026, 11:33 Uhr)
 
 ### Neu

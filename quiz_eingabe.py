@@ -5,6 +5,7 @@ Kommentare/Docstrings: ae/oe/ue (ASCII).
 Nutzer-sichtbarer Text: mit Umlauten.
 """
 
+import json
 import pathlib
 import shutil
 import sys
@@ -29,7 +30,48 @@ from quiz_data import (
     normalize_joker,
     compute_dashboard_data,
     compute_insights,
+    compute_gegner_vergleich,
+    load_ergebnisse,
+    gespielte_abende,
 )
+
+# Klarnamen-Schluessel (Kennung -> echter Teamname): liegt bewusst NICHT in
+# quiz_data.py (siehe Kommentar dort vor ERGEBNISSE_PATH) -- er ist lokal,
+# nicht im Repo (.gitignore) und wird von der Streamlit-Variante (app.py)
+# nie geladen. Pfad relativ zu DATA_PATH statt einer eigenen Kandidaten-
+# Kaskade: data.json und die Schluesseldatei liegen immer im selben Ordner
+# (Projektordner bzw. %LOCALAPPDATA%-Rueckfall), DATA_PATH hat das schon
+# aufgeloest.
+TEAMNAMEN_SCHLUESSEL_PATH = DATA_PATH.parent / "_teamnamen_schluessel.json"
+
+# Anzeige-Zusaetze fuer die "je Abend"-Tabelle des Gegner-Reiters, analog zu
+# GEPLANT_SUFFIX in der Uebersicht: Ein Zwischenstand (Joker-Spalte beim
+# Fotografieren noch leer, siehe compute_gegner_vergleich-Docstring) und ein
+# Abend ganz ohne Ergebnisliste sind beide keine belastbare Vergleichsbasis
+# und werden grau mit Strichen statt Zahlen angezeigt.
+ZWISCHENSTAND_SUFFIX = " (Zwischenstand)"
+OHNE_AUSWERTUNG_SUFFIX = " (ohne Auswertung)"
+
+
+def _load_teamnamen_schluessel():
+    """Laedt den lokalen Klarnamen-Schluessel (Kennung -> Anzeigename).
+
+    Liefert ein leeres dict, wenn die Datei fehlt oder nicht lesbar ist --
+    der Gegner-Reiter faellt dann stillschweigend auf die Kennungen selbst
+    zurueck (kein Absturz, keine Fehlermeldung). Das ist Absicht: Jede
+    Arbeitskopie ausser Felix' eigener hat diese Datei nicht (siehe
+    .gitignore), und das Werkzeug muss dort trotzdem voll funktionsfaehig
+    bleiben.
+    """
+    try:
+        with TEAMNAMEN_SCHLUESSEL_PATH.open("r", encoding="utf-8") as fh:
+            rohdaten = json.load(fh)
+        return {kennung: eintrag.get("anzeigename", kennung)
+                for kennung, eintrag in rohdaten.items()}
+    except Exception:
+        # Wie _load_logo/_resolve_icon_path in diesem Modul: Fehlen der
+        # lokalen Datei ist der Regelfall, kein Diagnosefall.
+        return {}
 
 # Auswahl der Joker-Comboboxen: '(keiner)' vorweg, dann der Kategorien-Kanon.
 JOKER_CHOICES = [JOKER_KEINER] + list(CATEGORIES)
@@ -161,7 +203,13 @@ def _bind_combo_autocomplete(combo):
             merken(typed, "")
 
     combo.bind("<KeyRelease>", on_keyrelease)
-    combo._autocomplete_handler = on_keyrelease  # Testhaken, sonst ungenutzt
+    # Kein Testhaken mehr noetig: Proben koennen echte Ereignisse schicken --
+    # c.event_generate("<KeyPress-g>") gefolgt von "<KeyRelease-g>". Die
+    # frueher notierte Annahme, event_generate erreiche ttk-Comboboxen nicht,
+    # war eine halbe Wahrheit: <KeyRelease> ALLEIN bewirkt nichts, weil Tk das
+    # Zeichen beim KeyPress einfuegt; dieser Handler sah dann ein leeres Feld.
+    # Am 23.10.2026 gemessen: mit beiden Ereignissen wird aus "ges" zuverlaessig
+    # "Geschichte", mit und ohne when="now".
 
 
 # Icon-Pfad: Kandidaten-Kaskade analog Loriot/encoder.py (resolve_ffmpeg).
@@ -242,9 +290,31 @@ PAD_SMALL = 5
 # Spaltenbreiten messen es mit.
 ZELL_EINZUG = " "
 
+# Zusatz in der Monatsspalte fuer einen vorab angelegten, noch nicht
+# gespielten Abend (siehe gespielte_abende in quiz_data.py). Eine Konstante
+# statt eines doppelt getippten Strings: die Spaltenbreiten-Messung
+# (MONAT_PROBE in _build_table_block) und das tatsaechliche Einsetzen
+# (_reload_tree) muessen denselben Text tragen, sonst schneidet die Spalte
+# genau diesen Zusatz ab.
+GEPLANT_SUFFIX = " (geplant)"
+
 # Anordnung der vier Teil-Bloecke im Eingabeformular: 1 = untereinander,
 # 2 = zu zweit nebeneinander. Siehe _build_teile().
 TEILE_SPALTEN = 1
+
+# Figure-DPI der vier Dashboard-Diagramme im Raster und in der Vollansicht.
+# Die Schriftgroessen der Diagramme stehen in Punkten (fontsize=8 bis 12) und
+# blieben beim Wechsel in die Vollansicht unveraendert, waehrend die
+# Zeichenflaeche auf das Vierfache wuchs -- Titel und Achsen wirkten dort
+# verloren. Die DPI ist der eine Hebel dagegen: Ein Punkt entspricht dpi/72
+# Pixeln, mit ihr wachsen Schrift, Linienstaerken und Marker gemeinsam, ohne
+# dass die neunzehn fontsize-Werte der vier Diagramme in zwei Fassungen
+# gepflegt werden muessten.
+# 140 statt 200 -- gedaempft, denn die Flaeche verdoppelt sich je Kante, eine
+# volle Verdopplung der Schrift sprengte die relativ bemessenen Raender
+# (subplots_adjust).
+CHART_DPI_RASTER = 100
+CHART_DPI_VOLL = 140
 
 VERSION = "0.10.0"
 
@@ -339,6 +409,10 @@ class QuizEingabeApp(tk.Tk):
         self._cat_cmbs = []
         self._teil_sum_labels = []
         self.lbl_mode_hinweis = None
+        # Klarnamen-Schluessel einmalig laden -- er aendert sich nicht
+        # waehrend eine Instanz laeuft, ein Neuladen je Tab-Wechsel waere
+        # unnoetige Arbeit fuer eine kleine, lokale Datei.
+        self._teamnamen = _load_teamnamen_schluessel()
 
         self._setup_styles()
         self._build_ui()
@@ -478,12 +552,15 @@ class QuizEingabeApp(tk.Tk):
         self._tab_uebersicht = ttk.Frame(self.notebook)
         self._tab_dashboard = ttk.Frame(self.notebook)
         self._tab_insights = ttk.Frame(self.notebook)
+        self._tab_gegner = ttk.Frame(self.notebook)
         self.notebook.add(self._tab_uebersicht, text="Übersicht")
         self.notebook.add(self._tab_dashboard, text="Dashboard")
         self.notebook.add(self._tab_insights, text="Erkenntnisse")
+        self.notebook.add(self._tab_gegner, text="Gegner")
         self._build_uebersicht_tab(self._tab_uebersicht)
         self._dashboard_built = False
         self._build_insights_tab(self._tab_insights)
+        self._gegner_built = False
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
 
     # --- 1. Header ---
@@ -614,7 +691,8 @@ class QuizEingabeApp(tk.Tk):
         # Verlust blieb also unbemerkt.
         # Die Proben tragen den Zell-Einzug mit, damit die gemessene Breite zu
         # dem passt, was _reload_tree tatsaechlich einsetzt.
-        MONAT_PROBE = ZELL_EINZUG + max(GERMAN_MONTHS_LONG, key=len) + " 2026"
+        MONAT_PROBE = (ZELL_EINZUG + max(GERMAN_MONTHS_LONG, key=len) + " 2026"
+                      + GEPLANT_SUFFIX)
         KATEGORIE_PROBE = ZELL_EINZUG + max(CATEGORIES, key=len)
         PLATZ_PROBE = "50 / 50"
         # Die Tabelle traegt seit dem Umbau der Uebersicht auch die vier
@@ -648,6 +726,10 @@ class QuizEingabeApp(tk.Tk):
                               command=lambda c=col: self._on_tree_heading_click(c))
             self.tree.column(col, width=breite, minwidth=breite,
                              anchor=anchor, stretch=False)
+
+        # Tag fuer geplante (noch nicht gespielte) Abende: graue Schrift,
+        # damit die Vorbereitung optisch von einem echten Ergebnis absteht.
+        self.tree.tag_configure("geplant", foreground=TEXT_SECONDARY)
 
         # Ausgangszustand: Datum absteigend (neuester Abend oben) -- wie
         # bisher, nur jetzt als benanntes Sortierkriterium statt eines
@@ -947,6 +1029,7 @@ class QuizEingabeApp(tk.Tk):
         self._form_canvas = None
         self._form_vsb = None
         self._form_window = None
+        self.spn_tag = None
         self.cmb_monat = None
         self.spn_jahr = None
         self.cmb_joker1 = None
@@ -1004,7 +1087,7 @@ class QuizEingabeApp(tk.Tk):
             self._form_canvas.yview_scroll(-int(event.delta / 120), "units")
 
     def _build_eckdaten(self, row):
-        """Eckdaten-Block: Monat, Jahr, Joker, Sonderrunde, Platzierung."""
+        """Eckdaten-Block: Termin, Joker, Sonderrunde, Platzierung."""
         lf = ttk.LabelFrame(self.form_frame, text="Eckdaten")
         lf.grid(row=row, column=0, sticky="new",
                 padx=PAD_MEDIUM, pady=(PAD_SMALL, 0))
@@ -1015,20 +1098,33 @@ class QuizEingabeApp(tk.Tk):
 
         zeile_pady = (PAD_SMALL, PAD_SMALL)
 
-        # Monat / Jahr
-        ttk.Label(lf, text="Monat:").grid(
+        # Termin: Tag, Monat, Jahr in deutscher Leserichtung ueber die
+        # Spalten 1 bis 3 -- genau die drei Spalten, die vorher Monat und
+        # Jahr samt eigenem "Jahr:"-Label belegten. Die Joker-Zeilen darunter
+        # spannen ueber dieselben drei Spalten (columnspan=3) und bleiben
+        # deshalb unberuehrt.
+        #
+        # Der Tag ist seit v0.11.0 eingebbar: Zuvor schrieb das Formular hart
+        # den Monatsersten ins Feld "Datum" (quiznight_from_form), obwohl die
+        # Abende auf Donnerstagen liegen. Das Datum ist nicht bloss Zierde --
+        # es verknuepft einen Abend mit seiner Ergebnisliste in
+        # ergebnisse.json (compute_gegner_vergleich) und dient beim Bearbeiten
+        # und Loeschen als Schluessel.
+        ttk.Label(lf, text="Termin:").grid(
             row=0, column=0, sticky="w", padx=PAD_SMALL, pady=zeile_pady)
+        # Zahlen zentriert: In einem schmalen Feld klebt eine rechts- oder
+        # linksbuendige Ziffer unweigerlich an einer der beiden Kanten.
+        self.spn_tag = ttk.Spinbox(lf, from_=1, to=31, width=4,
+                                   font=FONT_NORMAL, justify="center")
+        self.spn_tag.grid(row=0, column=1, sticky="w",
+                          padx=PAD_SMALL, pady=zeile_pady)
+
         self.cmb_monat = ttk.Combobox(lf, values=GERMAN_MONTHS, state="readonly",
                                       width=10, font=FONT_NORMAL)
-        self.cmb_monat.grid(row=0, column=1, sticky="w",
+        self.cmb_monat.grid(row=0, column=2, sticky="w",
                             padx=PAD_SMALL, pady=zeile_pady)
         _bind_combo_typeahead(self.cmb_monat)
 
-        ttk.Label(lf, text="Jahr:").grid(
-            row=0, column=2, sticky="w", padx=(PAD_MEDIUM, PAD_SMALL),
-            pady=zeile_pady)
-        # Zahlen zentriert: In einem schmalen Feld klebt eine rechts- oder
-        # linksbuendige Ziffer unweigerlich an einer der beiden Kanten.
         self.spn_jahr = ttk.Spinbox(lf, from_=2024, to=2099, width=8,
                                     font=FONT_NORMAL, justify="center")
         self.spn_jahr.grid(row=0, column=3, sticky="w",
@@ -1304,6 +1400,7 @@ class QuizEingabeApp(tk.Tk):
         self._chart_buttons = {}       # key -> Vollansicht-Knopf
         self._chart_grid_info = {}     # key -> {"row":.., "column":..}
         self._chart_canvases_by_key = {}
+        self._chart_raender = {}       # key -> subplots_adjust im Raster
         self._chart_fullview_key = None
 
         def _chart_frame(row, col, key, raender):
@@ -1324,8 +1421,10 @@ class QuizEingabeApp(tk.Tk):
             btn.pack(side="right", padx=4, pady=2)
             self._chart_buttons[key] = btn
 
-            fig = Figure(figsize=(5.5, 3.2), dpi=100, facecolor=CARD_BG)
+            fig = Figure(figsize=(5.5, 3.2), dpi=CHART_DPI_RASTER,
+                         facecolor=CARD_BG)
             fig.subplots_adjust(**raender)
+            self._chart_raender[key] = dict(raender)
             ax = fig.add_subplot(111)
             canvas = FigureCanvasTkAgg(fig, master=rahmen)
             canvas.get_tk_widget().pack(fill="both", expand=True,
@@ -1358,8 +1457,64 @@ class QuizEingabeApp(tk.Tk):
         else:
             self._show_chart_fullview(key)
 
+    def _set_chart_dpi(self, canvas, dpi):
+        """Setzt die Figure-DPI und zieht die Groesse in Zoll nach.
+
+        Ueber die DPI wachsen Schrift, Linienstaerken und Marker gemeinsam
+        mit der Zeichenflaeche (siehe CHART_DPI_RASTER/CHART_DPI_VOLL).
+        set_dpi() allein laesst die Groesse in Zoll unberuehrt -- die Figur
+        wuerde dadurch in Pixeln ueber das Tk-Widget hinauswachsen. Das
+        Nachziehen aus winfo_* haelt die Pixelgroesse fest; genau das tut der
+        Resize-Handler von FigureCanvasTkAgg sonst erst beim naechsten
+        <Configure>, und darauf ist kein Verlass, solange das Widget seine
+        neue Groesse noch nicht kennt.
+        """
+        fig = canvas.figure
+        if abs(fig.get_dpi() - dpi) < 0.5:
+            return
+        fig.set_dpi(dpi)
+        widget = canvas.get_tk_widget()
+        widget.update_idletasks()
+        breite, hoehe = widget.winfo_width(), widget.winfo_height()
+        if breite > 1 and hoehe > 1:
+            fig.set_size_inches(breite / dpi, hoehe / dpi, forward=False)
+
+    def _skaliere_raender(self, fig, key, raster_px, voll_px):
+        """Zieht die Figure-Raender von der Raster- auf die Vollansicht nach.
+
+        subplots_adjust rechnet in Anteilen der Figur, nicht in Pixeln: Der
+        im Raster passende linke Rand von 20 % waere in der doppelt so
+        breiten Vollansicht die doppelte Pixelzahl -- Leerraum, den die
+        Kategorienamen dort nicht brauchen. Die Raender sollen in Pixeln
+        deshalb nur um den Schriftfaktor wachsen (CHART_DPI_VOLL /
+        CHART_DPI_RASTER), nicht um den Flaechenfaktor. Gerechnet wird
+        stets aus den gespeicherten Raster-Werten, damit mehrfaches
+        Hin- und Herschalten nicht driftet.
+        """
+        wachstum = CHART_DPI_VOLL / CHART_DPI_RASTER
+        sx = raster_px[0] / voll_px[0] * wachstum
+        sy = raster_px[1] / voll_px[1] * wachstum
+        b = self._chart_raender[key]
+        # Deckel bei 40 %: Ein entarteter Groessenwert (Fenster waehrend des
+        # Umschaltens winzig) darf die Zeichenflaeche nicht zuschnueren.
+        fig.subplots_adjust(
+            left=min(b["left"] * sx, 0.40),
+            right=1 - min((1 - b["right"]) * sx, 0.40),
+            bottom=min(b["bottom"] * sy, 0.40),
+            top=1 - min((1 - b["top"]) * sy, 0.40),
+        )
+
     def _show_chart_fullview(self, key):
         self._chart_fullview_key = key
+        canvas = self._chart_canvases_by_key.get(key)
+        # Die Raster-Pixelmasse vor dem Umgridden abgreifen -- danach steht
+        # die Figur bereits in der neuen Groesse.
+        raster_px = None
+        if canvas is not None:
+            fig = canvas.figure
+            raster_px = (fig.get_figwidth() * fig.get_dpi(),
+                         fig.get_figheight() * fig.get_dpi())
+
         for k, rahmen in self._chart_frames.items():
             if k == key:
                 rahmen.grid(row=0, column=0, rowspan=2, columnspan=2,
@@ -1367,8 +1522,14 @@ class QuizEingabeApp(tk.Tk):
                 self._chart_buttons[k].configure(text="Zurück zur Übersicht")
             else:
                 rahmen.grid_remove()
-        canvas = self._chart_canvases_by_key.get(key)
+
         if canvas is not None:
+            self._set_chart_dpi(canvas, CHART_DPI_VOLL)
+            fig = canvas.figure
+            voll_px = (fig.get_figwidth() * fig.get_dpi(),
+                       fig.get_figheight() * fig.get_dpi())
+            if raster_px and voll_px[0] > 1 and voll_px[1] > 1:
+                self._skaliere_raender(fig, key, raster_px, voll_px)
             canvas.draw_idle()
 
     def _show_chart_grid(self):
@@ -1378,7 +1539,9 @@ class QuizEingabeApp(tk.Tk):
             rahmen.grid(row=info["row"], column=info["column"],
                        rowspan=1, columnspan=1, sticky="nsew", padx=4, pady=4)
             self._chart_buttons[k].configure(text="Vollansicht")
-        for canvas in self._dashboard_canvases:
+        for k, canvas in self._chart_canvases_by_key.items():
+            self._set_chart_dpi(canvas, CHART_DPI_RASTER)
+            canvas.figure.subplots_adjust(**self._chart_raender[k])
             canvas.draw_idle()
 
     # --- 6. Erkenntnisse-Reiter ---
@@ -1422,6 +1585,355 @@ class QuizEingabeApp(tk.Tk):
 
         self._insights_canvas.bind("<Enter>", _bind_mousewheel)
         self._insights_canvas.bind("<Leave>", _unbind_mousewheel)
+
+    # --- 7. Gegner-Reiter ---
+    def _build_gegner_tab(self, parent):
+        """Baut den Reiter 'Gegner': Grundlage-Zeile, zwei Tabellen (je
+        Abend, Gegnerbilanz) und zwei gerahmte Diagramme -- scrollbar wie
+        der Erkenntnisse-Reiter (_build_insights_tab), denn die
+        Gegnerbilanz zaehlt so viele Zeilen wie es Gegner mit mindestens
+        drei gemeinsamen Abenden gibt und passt nicht verlaesslich auf
+        eine Bildschirmhoehe.
+
+        Baut nur das Geruest; _refresh_gegner() befuellt es bei jedem
+        Reiter-Wechsel neu -- analog zum Dashboard
+        (_build_dashboard_tab/_refresh_dashboard), nur ohne den separaten
+        "immer sichtbar"-Teil, den das Dashboard mit den KPI-Kacheln hat.
+        """
+        canvas = tk.Canvas(parent, bg=BACKGROUND, highlightthickness=0)
+        vsb = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        inner = tk.Frame(canvas, bg=BACKGROUND)
+        window = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_inner_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        inner.bind("<Configure>", _on_inner_configure)
+
+        def _on_canvas_configure(event):
+            canvas.itemconfig(window, width=event.width)
+        canvas.bind("<Configure>", _on_canvas_configure)
+
+        def _on_mousewheel(event):
+            canvas.yview_scroll(-int(event.delta / 120), "units")
+
+        def _bind_mousewheel(event):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_mousewheel(event):
+            canvas.unbind_all("<MouseWheel>")
+
+        canvas.bind("<Enter>", _bind_mousewheel)
+        canvas.bind("<Leave>", _unbind_mousewheel)
+        self._gegner_canvas = canvas  # analog self._insights_canvas
+
+        # Hinweis bei fehlenden/leeren Gegnerdaten -- ersetzt den gesamten
+        # Inhalt ueber pack()/pack_forget() in _refresh_gegner, kein
+        # Ausnahmepfad noetig (load_ergebnisse() liefert ohnehin [] statt
+        # eines Fehlers, wenn ergebnisse.json fehlt).
+        self._gegner_leer_label = tk.Label(
+            inner, text="Noch keine Gegner-Ergebnisse erfasst.",
+            font=FONT_NORMAL, bg=BACKGROUND, fg=TEXT_SECONDARY)
+
+        self._gegner_content = tk.Frame(inner, bg=BACKGROUND)
+        self._gegner_content.pack(fill="both", expand=True)
+        content = self._gegner_content
+
+        # Grundlage-Zeile: wie viele Abende eingehen und warum nicht alle.
+        self._gegner_grundlage_label = tk.Label(
+            content, text="", font=FONT_SMALL, bg=BACKGROUND,
+            fg=TEXT_SECONDARY, wraplength=1100, justify="left", anchor="w")
+        self._gegner_grundlage_label.pack(fill="x", padx=PAD_MEDIUM,
+                                          pady=(PAD_MEDIUM, PAD_SMALL))
+
+        # --- Tabelle "je Abend" ---
+        lf_abend = ttk.LabelFrame(content, text="Ergebnisse je Abend")
+        lf_abend.pack(fill="x", padx=PAD_MEDIUM, pady=(0, PAD_MEDIUM))
+        cols_abend = ("monat", "teams", "eigene", "sieger", "rueckstand",
+                      "feldmittel", "diff_feld", "einstufung")
+        headers_abend = {
+            "monat": ("Monat", "w"),
+            "teams": ("Teams", "center"),
+            "eigene": ("Eigene Pkt.", "center"),
+            "sieger": ("Siegerpunkte", "center"),
+            "rueckstand": ("Rückstand z. Spitze", "center"),
+            "feldmittel": ("Feldmittel", "center"),
+            "diff_feld": ("Abstand zum Feld", "center"),
+            "einstufung": ("Einstufung", "center"),
+        }
+        self.tree_gegner_abend = ttk.Treeview(lf_abend, columns=cols_abend,
+                                              show="headings", height=8)
+        for col in cols_abend:
+            text, anchor = headers_abend[col]
+            breite = _spaltenbreite(text, [])
+            self.tree_gegner_abend.heading(col, text=text, anchor=anchor)
+            self.tree_gegner_abend.column(col, width=breite, minwidth=breite,
+                                          anchor=anchor, stretch=False)
+        self.tree_gegner_abend.tag_configure("grau", foreground=TEXT_SECONDARY)
+        self.tree_gegner_abend.pack(fill="x", padx=PAD_SMALL, pady=PAD_SMALL)
+
+        # --- Tabelle "Gegnerbilanz" ---
+        lf_bilanz = ttk.LabelFrame(content, text="Gegnerbilanz")
+        lf_bilanz.pack(fill="x", padx=PAD_MEDIUM, pady=(0, PAD_MEDIUM))
+        cols_bilanz = ("team", "abende", "vor", "hinter", "gleich", "abstand")
+        headers_bilanz = {
+            "team": ("Team", "w"),
+            "abende": ("Gem. Abende", "center"),
+            "vor": ("Vor uns", "center"),
+            "hinter": ("Hinter uns", "center"),
+            "gleich": ("Gleichstand", "center"),
+            "abstand": ("Ø Punktabstand", "center"),
+        }
+        self.tree_gegner_bilanz = ttk.Treeview(lf_bilanz, columns=cols_bilanz,
+                                               show="headings", height=8)
+        for col in cols_bilanz:
+            text, anchor = headers_bilanz[col]
+            breite = _spaltenbreite(text, [])
+            self.tree_gegner_bilanz.heading(col, text=text, anchor=anchor)
+            self.tree_gegner_bilanz.column(col, width=breite, minwidth=breite,
+                                           anchor=anchor, stretch=False)
+        self.tree_gegner_bilanz.pack(fill="x", padx=PAD_SMALL, pady=(PAD_SMALL, 0))
+
+        self._gegner_bilanz_footer = tk.Label(
+            lf_bilanz, text="", font=FONT_SMALL, bg=BACKGROUND,
+            fg=TEXT_SECONDARY, anchor="w", wraplength=1100, justify="left")
+        self._gegner_bilanz_footer.pack(fill="x", padx=PAD_SMALL,
+                                        pady=(0, PAD_SMALL))
+
+        # --- Diagramme: gerahmt wie im Dashboard (_chart_frame), aber ohne
+        # Vollansicht-Knopf -- zwei feste Diagramme nebeneinander brauchen
+        # den Platzwechsel nicht. ---
+        import matplotlib
+        matplotlib.use("TkAgg")
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+        charts = tk.Frame(content, bg=BACKGROUND)
+        charts.pack(fill="x", padx=PAD_MEDIUM, pady=(0, PAD_MEDIUM))
+        charts.columnconfigure(0, weight=1, uniform="gegner_charts")
+        charts.columnconfigure(1, weight=1, uniform="gegner_charts")
+
+        def _rahmen(col):
+            rahmen = tk.Frame(charts, bg=CARD_BG,
+                              highlightbackground="#d1d5db",
+                              highlightthickness=1)
+            rahmen.grid(row=0, column=col, sticky="nsew", padx=4, pady=4)
+            fig = Figure(figsize=(5.5, 3.4), dpi=100, facecolor=CARD_BG)
+            fig.subplots_adjust(left=0.11, right=0.97, top=0.90, bottom=0.22)
+            ax = fig.add_subplot(111)
+            canvas_fig = FigureCanvasTkAgg(fig, master=rahmen)
+            canvas_fig.get_tk_widget().pack(fill="both", expand=True,
+                                            padx=2, pady=2)
+            return ax, canvas_fig
+
+        self._ax_gegner_abstand, self._canvas_gegner_abstand = _rahmen(0)
+        self._ax_gegner_feld, self._canvas_gegner_feld = _rahmen(1)
+
+    def _fill_gegner_abend_table(self, je_abend, einordnung):
+        """Befuellt die Tabelle 'Ergebnisse je Abend' neu (loescht erst alle
+        Zeilen). Zwischenstaende und Abende ohne Ergebnisliste erscheinen
+        grau mit Strichen statt Zahlen -- wie geplante Abende in der
+        Uebersicht (GEPLANT_SUFFIX/Tag 'geplant'), hier mit eigenen
+        Suffixen und dem Tag 'grau'."""
+        tree = self.tree_gegner_abend
+        for row in tree.get_children():
+            tree.delete(row)
+
+        einordnung_by_abend = {e["abend"]: e for e in einordnung}
+        zellen = []
+        for e in je_abend:
+            stand = e["stand"]
+            monat = e.get("monat") or ""
+            if stand == "endstand":
+                monat_anzeige = monat
+                teams = str(e["teams_anzahl"])
+                eigene = str(e["eigene_punkte"])
+                sieger = str(e["siegerpunkte"])
+                rueckstand = str(e["abstand_spitze"])
+                feldmittel = f"{e['feld_mittelwert']:.1f}".replace(".", ",")
+                # Vorzeichen gedreht gegenueber "abstand_mittel"
+                # (compute_gegner_vergleich liefert Feldmittel minus eigene
+                # Punkte): hier eigene Punkte minus Feldmittel, damit ein
+                # Pluszeichen wie ueberall sonst im Werkzeug "besser als"
+                # heisst -- "ueber dem Feld" statt "Feld liegt vorn".
+                diff_anzeige = -e["abstand_mittel"]
+                diff_str = f"{diff_anzeige:+.1f}".replace(".", ",")
+                info = einordnung_by_abend.get(e["abend"])
+                einstufung = info["einstufung"] if info else "–"
+                tags = ()
+            else:
+                monat_anzeige = monat + (
+                    ZWISCHENSTAND_SUFFIX if stand == "zwischenstand"
+                    else OHNE_AUSWERTUNG_SUFFIX)
+                teams = eigene = sieger = rueckstand = feldmittel = "–"
+                diff_str = "–"
+                einstufung = "–"
+                tags = ("grau",)
+
+            values = (ZELL_EINZUG + monat_anzeige, teams, eigene, sieger,
+                      rueckstand, feldmittel, diff_str, einstufung)
+            zellen.append(values)
+            tree.insert("", "end", values=values, tags=tags)
+
+        tree.configure(height=max(1, min(len(zellen), 16)))
+
+        cols = ("monat", "teams", "eigene", "sieger", "rueckstand",
+                "feldmittel", "diff_feld", "einstufung")
+        headers = ("Monat", "Teams", "Eigene Pkt.", "Siegerpunkte",
+                   "Rückstand z. Spitze", "Feldmittel", "Abstand zum Feld",
+                   "Einstufung")
+        for idx, (col, header) in enumerate(zip(cols, headers)):
+            inhalte = [row[idx] for row in zellen]
+            breite = _spaltenbreite(header, inhalte)
+            tree.column(col, width=breite, minwidth=breite)
+
+    def _fill_gegner_bilanz_table(self, gegnerbilanz, mindest_gemeinsame_abende):
+        """Befuellt die Tabelle 'Gegnerbilanz' -- nur aussagekraeftige
+        Gegner (mind. 'mindest_gemeinsame_abende' gemeinsame Endstand-
+        Abende), absteigend nach gemeinsamen Abenden. Teamnamen ueber
+        self._teamnamen (Kennung -> Anzeigename, leer in der Streamlit-
+        Variante nicht relevant -- dort laedt quiz_eingabe.py gar nicht)."""
+        tree = self.tree_gegner_bilanz
+        for row in tree.get_children():
+            tree.delete(row)
+
+        eintraege = [(k, v) for k, v in gegnerbilanz.items()
+                    if v["aussagekraeftig"]]
+        eintraege.sort(key=lambda kv: -kv[1]["gemeinsame_abende"])
+
+        zellen = []
+        for kennung, v in eintraege:
+            name = self._teamnamen.get(kennung, kennung)
+            # Gleiche Drehung wie in der "je Abend"-Tabelle: eigene Punkte
+            # minus Gegner statt Gegner minus eigene Punkte
+            # (punktabstand_mittel) -- Pluszeichen heisst "wir liegen im
+            # Schnitt vorn".
+            abstand_anzeige = -v["punktabstand_mittel"]
+            row = (ZELL_EINZUG + name, str(v["gemeinsame_abende"]),
+                   str(v["vor_uns"]), str(v["hinter_uns"]),
+                   str(v["gleichstand"]),
+                   f"{abstand_anzeige:+.1f}".replace(".", ","))
+            zellen.append(row)
+            tree.insert("", "end", values=row)
+
+        tree.configure(height=max(1, min(len(zellen), 16)))
+
+        cols = ("team", "abende", "vor", "hinter", "gleich", "abstand")
+        headers = ("Team", "Gem. Abende", "Vor uns", "Hinter uns",
+                   "Gleichstand", "Ø Punktabstand")
+        for idx, (col, header) in enumerate(zip(cols, headers)):
+            inhalte = [row[idx] for row in zellen] if zellen else [""]
+            breite = _spaltenbreite(header, inhalte)
+            tree.column(col, width=breite, minwidth=breite)
+
+        self._gegner_bilanz_footer.configure(
+            text=f"Nur Teams mit mindestens {mindest_gemeinsame_abende} "
+                 f"gemeinsamen Endstand-Abenden gelten als aussagekräftig "
+                 f"und erscheinen hier. Positive Werte beim Punktabstand: "
+                 f"Sie liegen im Schnitt vorn.")
+
+    def _draw_gegner_abstand(self, trend):
+        """Diagramm 1: Abstand zur Spitze je Abend, nur Endstand-Abende
+        (trend ist bereits darauf gefiltert, siehe compute_gegner_vergleich)."""
+        ax = self._ax_gegner_abstand
+        ax.clear()
+        monate = trend["monate"]
+        werte = trend["abstand_spitze"]
+        if not monate:
+            ax.set_title("Abstand zur Spitze", fontsize=12)
+            ax.set_axis_off()
+            return
+        x = range(len(monate))
+        ax.bar(x, werte, color="#6baed6")
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(monate, rotation=30, ha="right", fontsize=9)
+        ax.set_ylabel("Rückstand (Pkt.)", fontsize=10)
+        ax.set_title("Abstand zur Spitze je Abend (Endstand-Abende)",
+                     fontsize=11)
+        ax.tick_params(axis="both", labelsize=9)
+        ax.grid(axis="y", alpha=0.15)
+        hoch = max(werte) if werte else 0
+        for xi, v in zip(x, werte):
+            ax.text(xi, v + hoch * 0.02, str(v), ha="center", va="bottom",
+                    fontsize=8, color="#374151")
+
+    def _draw_gegner_feld(self, je_abend):
+        """Diagramm 2: eigene Punkte gegen das Feldmittel je Abend. Endstand
+        und Zwischenstand bleiben als zwei Balkenserien unterscheidbar (zur
+        Transparenz, wie die Tabelle 'je Abend' es mit dem Suffix tut),
+        statt Zwischenstaende stillschweigend wie Endstaende zu zeichnen."""
+        ax = self._ax_gegner_feld
+        ax.clear()
+        rows = [r for r in je_abend if r["stand"] is not None]
+        if not rows:
+            ax.set_title("Eigene Punkte und Feldmittel", fontsize=12)
+            ax.set_axis_off()
+            return
+        monate = [r["monat"] for r in rows]
+        x = list(range(len(rows)))
+        nan = float("nan")
+        eigene_end = [r["eigene_punkte"] if r["stand"] == "endstand" else nan
+                      for r in rows]
+        eigene_zw = [r["eigene_punkte"] if r["stand"] == "zwischenstand"
+                     else nan for r in rows]
+        feldmittel = [r["feld_mittelwert"] for r in rows]
+
+        ax.bar(x, eigene_end, color="#2171b5", label="Eigene Pkt. (Endstand)")
+        ax.bar(x, eigene_zw, color="#9ecae1",
+               label="Eigene Pkt. (Zwischenstand)")
+        ax.plot(x, feldmittel, color="#e15759", marker="o", linewidth=2,
+                markersize=5, label="Feldmittel")
+        ax.set_xticks(x)
+        ax.set_xticklabels(monate, rotation=30, ha="right", fontsize=9)
+        ax.set_ylabel("Punkte", fontsize=10)
+        ax.set_title("Eigene Punkte und Feldmittel je Abend", fontsize=11)
+        ax.tick_params(axis="both", labelsize=9)
+        ax.grid(axis="y", alpha=0.15)
+        ax.legend(fontsize=7.5, loc="upper left")
+
+    def _refresh_gegner(self):
+        """Berechnet den Gegner-Vergleich frisch und befuellt Grundlage-
+        Zeile, beide Tabellen und beide Diagramme. Wie _refresh_dashboard()
+        nicht an eine Aenderung gebunden, sondern bei jedem Reiter-Wechsel
+        neu berechnet -- ergebnisse.json ist klein, ein eigener Cache
+        lohnt nicht."""
+        ergebnisse = load_ergebnisse()
+        gespielt = gespielte_abende(self.quiz_nights)
+        if not ergebnisse or not gespielt:
+            self._gegner_content.pack_forget()
+            self._gegner_leer_label.pack(padx=PAD_LARGE, pady=PAD_LARGE)
+            return
+        self._gegner_leer_label.pack_forget()
+        self._gegner_content.pack(fill="both", expand=True)
+
+        result = compute_gegner_vergleich(self.quiz_nights, ergebnisse)
+        meta = result["meta"]
+
+        teile = [f"{meta['abende_endstand']} von {meta['abende_gespielt']} "
+                 f"gespielten Abenden gehen mit Endstand in die Auswertung "
+                 f"ein."]
+        if meta["abende_zwischenstand"]:
+            teile.append(
+                f"{meta['abende_zwischenstand']} weitere liegen nur als "
+                f"Zwischenstand vor der Joker-Vergabe vor und zählen darum "
+                f"nicht mit -- die Punkte der Gegner wären dort "
+                f"unvollständig.")
+        if meta["abende_ohne_ergebnisliste"]:
+            teile.append(f"Zu {meta['abende_ohne_ergebnisliste']} Abenden "
+                        f"liegt keine Ergebnisliste vor.")
+        self._gegner_grundlage_label.configure(text=" ".join(teile))
+
+        self._fill_gegner_abend_table(result["je_abend"],
+                                      result["einordnung_platzierungen"])
+        self._fill_gegner_bilanz_table(result["gegnerbilanz"],
+                                       meta["mindest_gemeinsame_abende"])
+        self._draw_gegner_abstand(result["trend"])
+        self._draw_gegner_feld(result["je_abend"])
+        self._canvas_gegner_abstand.draw_idle()
+        self._canvas_gegner_feld.draw_idle()
 
     # ------------------------------------------------------------------
     # Dashboard-Refresh
@@ -1615,11 +2127,17 @@ class QuizEingabeApp(tk.Tk):
         ax.set_yticks(range(len(kats)))
         ax.set_yticklabels(kats, fontsize=9)
         ax.set_title("Punkte-Heatmap (Kategorien × Monate)", fontsize=12)
-        # Zellbeschriftung mit Punktzahl
+        # Zellbeschriftung mit Punktzahl. Die Schriftfarbe richtet sich nach
+        # der Helligkeit der Zelle: RdYlBu_r laeuft an BEIDEN Enden ins Dunkle
+        # (0 Punkte = tiefes Blau, 5 = tiefes Rot), ein fester dunkler Ton
+        # verschwand dort fast -- ausgerechnet auf den aussagekraeftigsten
+        # Feldern, der perfekten Runde und dem Totalausfall.
         for i, row in enumerate(matrix):
             for j, val in enumerate(row):
-                ax.text(j, i, str(val), ha="center", va="center",
-                        fontsize=9, color="#374151")
+                r, g, b, _ = im.cmap(im.norm(val))
+                luminanz = 0.299 * r + 0.587 * g + 0.114 * b
+                ax.text(j, i, str(val), ha="center", va="center", fontsize=9,
+                        color="#ffffff" if luminanz < 0.5 else "#374151")
 
     def _draw_scatter(self, scatter):
         """Scatter Std vs. Mittelwert mit Kategorie-Labels (Standard-Annotation)."""
@@ -1659,6 +2177,11 @@ class QuizEingabeApp(tk.Tk):
             self._refresh_dashboard()
         elif str(current) == str(self._tab_insights):
             self._refresh_insights()
+        elif str(current) == str(self._tab_gegner):
+            if not self._gegner_built:
+                self._build_gegner_tab(self._tab_gegner)
+                self._gegner_built = True
+            self._refresh_gegner()
 
     # ------------------------------------------------------------------
     # Daten laden / Treeview befuellen
@@ -1706,25 +2229,38 @@ class QuizEingabeApp(tk.Tk):
                                reverse=True)
         for night in sorted_nights:
             datum = night.get("Datum", "")
+            geplant = bool(night.get("Geplant", False))
             try:
                 monat_lang = iso_to_monat_long(datum) if datum else night.get("Monat", "")
             except (ValueError, IndexError):
                 monat_lang = night.get("Monat", "")
+            if geplant:
+                # Zusatz statt Jahreszahl-Kurzform: macht in der Tabelle auf
+                # den ersten Blick klar, dass hier noch kein Ergebnis steht.
+                monat_lang += GEPLANT_SUFFIX
             joker1 = night.get("Joker1") or "–"
             joker2 = night.get("Joker2") or "–"
             sonderrunde = night.get("Sonderrunde_Thema", "")
-            teil1 = night.get("Teil1", 0) or 0
-            teil2 = night.get("Teil2", 0) or 0
-            teil3 = night.get("Teil3", 0) or 0
-            teil4 = night.get("Teil4", 0) or 0
-            punkte = teil1 + teil2 + teil3 + teil4  # Spielpunkte ohne Joker-Bonus
-            bonus = night.get("Bonus", 0) or 0
-            gesamt = night.get("Gesamt", 0) or 0
-            pct = night.get("Pct_richtig", 0.0) or 0.0
-            pct_str = f"{pct * 100:.1f}".replace(".", ",") + " %"
-            platz = night.get("Platzierung")
-            von = night.get("Von")
-            platz_str = f"{platz} / {von}" if platz is not None else "–"
+            if geplant:
+                # Eine 0 behauptet ein Ergebnis, ein Strich nicht -- die
+                # Zahlenspalten eines geplanten Abends bleiben darum leer.
+                teil1 = teil2 = teil3 = teil4 = ""
+                punkte = bonus = gesamt = ""
+                pct_str = "–"
+                platz_str = "–"
+            else:
+                teil1 = night.get("Teil1", 0) or 0
+                teil2 = night.get("Teil2", 0) or 0
+                teil3 = night.get("Teil3", 0) or 0
+                teil4 = night.get("Teil4", 0) or 0
+                punkte = teil1 + teil2 + teil3 + teil4  # Spielpunkte ohne Joker-Bonus
+                bonus = night.get("Bonus", 0) or 0
+                gesamt = night.get("Gesamt", 0) or 0
+                pct = night.get("Pct_richtig", 0.0) or 0.0
+                pct_str = f"{pct * 100:.1f}".replace(".", ",") + " %"
+                platz = night.get("Platzierung")
+                von = night.get("Von")
+                platz_str = f"{platz} / {von}" if platz is not None else "–"
             # Einzug der linksbuendigen Spalten ueber ein vorangestelltes
             # Leerzeichen: ttk kennt fuer die Datenzellen eines Treeview kein
             # Innenpolster -- ein Stil-Padding greift nur am Spaltenkopf und an
@@ -1736,7 +2272,8 @@ class QuizEingabeApp(tk.Tk):
                                      ZELL_EINZUG + joker2,
                                      ZELL_EINZUG + sonderrunde,
                                      teil1, teil2, teil3, teil4,
-                                     punkte, bonus, gesamt, pct_str, platz_str))
+                                     punkte, bonus, gesamt, pct_str, platz_str),
+                             tags=("geplant",) if geplant else ())
 
         # Aktive Sortierung (Default: Datum absteigend) auf die frisch
         # befuellte Tabelle anwenden -- so bleibt ein vom Nutzer gewaehltes
@@ -1744,15 +2281,23 @@ class QuizEingabeApp(tk.Tk):
         self._apply_tree_sort()
 
     def _refresh_status(self):
-        """Aktualisiert die Statuszeile (Anzahl + letzte Aenderung)."""
-        n = len(self.quiz_nights)
+        """Aktualisiert die Statuszeile (Anzahl + letzte Aenderung).
+
+        Geplante Abende zaehlen nicht zur Hauptzahl -- die zaehlt nur
+        tatsaechlich gespielte Abende -- werden aber als Zusatz genannt,
+        sonst verschwindet die Vorbereitung aus der Wahrnehmung.
+        """
+        n = len(gespielte_abende(self.quiz_nights))
+        n_geplant = len(self.quiz_nights) - n
         try:
             mtime = DATA_PATH.stat().st_mtime
             dt_str = datetime.fromtimestamp(mtime).strftime("%d.%m.%Y %H:%M")
         except Exception:
             dt_str = "–"
-        self.lbl_status.configure(
-            text=f"{n} Abende gespeichert · letzte Änderung: {dt_str}")
+        text = f"{n} Abende gespeichert · letzte Änderung: {dt_str}"
+        if n_geplant:
+            text += f" · {n_geplant} geplant"
+        self.lbl_status.configure(text=text)
 
     # ------------------------------------------------------------------
     # Sortierung der Tabelle "Bisherige Abende"
@@ -1797,7 +2342,10 @@ class QuizEingabeApp(tk.Tk):
         if col == "pct":
             def _pct_key(iid):
                 night = self._night_by_datum(iid)
-                return night.get("Pct_richtig", 0.0) if night else 0.0
+                # "or 0.0" statt nur .get(...): Ein geplanter Abend traegt
+                # Pct_richtig als None, nicht als fehlenden Schluessel --
+                # ohne den Auffang vergliche sort() None gegen float.
+                return (night.get("Pct_richtig") or 0.0) if night else 0.0
             return _pct_key
         if col == "platz":
             def _platz_key(iid):
@@ -1944,6 +2492,7 @@ class QuizEingabeApp(tk.Tk):
             return
         now = datetime.now()
         # Monat (0-basiert in GERMAN_MONTHS)
+        self.spn_tag.set(now.day)
         self.cmb_monat.set(GERMAN_MONTHS[now.month - 1])
         self.spn_jahr.set(now.year)
         self.cmb_joker1.set("")
@@ -1971,10 +2520,19 @@ class QuizEingabeApp(tk.Tk):
         if datum and len(datum) >= 7:
             year = int(datum[:4])
             month = int(datum[5:7])
+            # Ein Abend aus der Zeit vor dem Tagesfeld (v0.11.0) kann ein auf
+            # 'JJJJ-MM' verkuerztes Datum tragen -- dann bleibt der Tag leer,
+            # statt einen Ersten zu erfinden.
+            try:
+                tag = int(datum[8:10])
+            except ValueError:
+                tag = None
+            self.spn_tag.set(tag if tag else "")
             self.spn_jahr.set(year)
             self.cmb_monat.set(GERMAN_MONTHS[month - 1])
         else:
             now = datetime.now()
+            self.spn_tag.set(now.day)
             self.spn_jahr.set(now.year)
             self.cmb_monat.set(GERMAN_MONTHS[now.month - 1])
 
@@ -2028,6 +2586,15 @@ class QuizEingabeApp(tk.Tk):
         except ValueError:
             month = 1
 
+        # Leeres oder unlesbares Tagesfeld -> None; quiznight_from_form setzt
+        # dann den Monatsersten wie vor v0.11.0 und klemmt einen zu grossen
+        # Tag (31. Februar) auf das Monatsende.
+        tag_raw = self.spn_tag.get().strip()
+        try:
+            day = int(tag_raw) if tag_raw else None
+        except ValueError:
+            day = None
+
         joker1 = self.cmb_joker1.get()
         joker2 = self.cmb_joker2.get()
         sonderrunde_thema = self.ent_sonderrunde.get().strip()
@@ -2058,6 +2625,7 @@ class QuizEingabeApp(tk.Tk):
         return {
             "year": year,
             "month": month,
+            "day": day,
             "joker1": joker1,
             "joker2": joker2,
             "sonderrunde_thema": sonderrunde_thema,
@@ -2072,8 +2640,8 @@ class QuizEingabeApp(tk.Tk):
     def _formular_hat_eingaben(self):
         """True, wenn im Modus 'new' etwas vom Startzustand abweicht.
 
-        Monat und Jahr zaehlen nicht mit -- die sind vorbelegt und kein
-        Zeichen einer begonnenen Eingabe.
+        Der Termin -- Tag, Monat, Jahr -- zaehlt nicht mit: alle drei sind
+        vorbelegt und kein Zeichen einer begonnenen Eingabe.
         """
         for t in range(4):
             for s in range(3):
