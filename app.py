@@ -314,7 +314,15 @@ DATA_PATH = pathlib.Path(__file__).parent / "data.json"
 # wider Erwarten fehl, filtert ein lokaler Ersatz unten weiter korrekt, nur
 # die Themen-Klassifikation und compute_insights fallen dann aus.
 try:
+    import importlib
     import quiz_data as qd
+    # Bei jedem Lauf frisch laden: Streamlit Cloud uebernimmt nach einem
+    # Push die neue app.py, behaelt aber das beim Serverstart importierte
+    # quiz_data im Speicher. Am 06.11.2026 brach die Seite daran ab
+    # (AttributeError: anzeigename fehlte im alten Modul), und schon zuvor
+    # fiel der Erkenntnisse-Abschnitt still aus (neue Signatur von
+    # compute_insights). Das Modul ist klein, das Neuladen kostet nichts.
+    qd = importlib.reload(qd)
 except Exception:  # pragma: no cover - Deployment-Absicherung
     qd = None
 
