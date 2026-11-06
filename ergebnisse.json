@@ -281,20 +281,20 @@
   {
     "datei": "260130_000000.jpg",
     "abend": "2026-01-30",
-    "sicherheit": "unsicher",
-    "stand": "zwischenstand",
-    "begruendung": "Digitales Board, Zwischenstand VOR Eintragung des Jokers (Joker-Spalte bei allen Teams leer). 14 Teams aktiv (passend zu Jan 26, laut Hinweis einzig 14-Team-Abend). 'Neigschmecktn' zeigt R1-4=6,11,10,9, Summe=36 - exakte Summe wie Felix' Teil1-4 fuer Jan 26 (9,9,9,9=36), aber Einzelwerte weichen deutlich vom hinterlegten Rundenbild ab; Bonus dort 0, Gesamt bliebe folglich bei 36. Gezeigter Platz 7 ist Zwischenstand, nicht der finale Platz 11 - plausibel, da andere Teams durch spaeteren Joker noch vorbeiziehen. Diese Diskrepanz bitte gegenpruefen. Nachtrag 23.10.2026: Beschieden -- der Abend bleibt als Zwischenstand VOR der Joker-Vergabe aus allen Gegner-Statistiken draussen (compute_gegner_vergleich wertet nur Endstaende). Die Abweichung der Einzelrunden ist damit gegenstandslos; die Summe 36 stimmt.",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Digitales Board, ENDSTAND (Joker-Spalte bei allen Teams gefuellt, R1-4 + Joker = Gesamt in jeder Zeile). 14 Teams. Eigenes Team: R1-4 = 9,8,9,9, Joker 0, Gesamt 35, Platz 11. Korrektur 06.11.2026: Die fruehere Lesung als Zwischenstand vor der Joker-Vergabe war falsch; Punkte und Teams sind neu vom Foto abgelesen.",
     "datum_im_bild": null,
     "dublette_von": null,
     "teams": [
       {
         "platz": 1,
-        "name": "T01",
-        "punkte": 47
+        "name": "T04",
+        "punkte": 49
       },
       {
-        "platz": 1,
-        "name": "T04",
+        "platz": 2,
+        "name": "T08",
         "punkte": 47
       },
       {
@@ -309,53 +309,53 @@
       },
       {
         "platz": 5,
-        "name": "T08",
+        "name": "T17",
         "punkte": 39
       },
       {
-        "platz": 7,
-        "name": "Die Neigschmecktn",
-        "punkte": 36
+        "platz": 6,
+        "name": "T19",
+        "punkte": 38
       },
       {
         "platz": 6,
-        "name": "T23",
-        "punkte": 37
+        "name": "T01",
+        "punkte": 38
       },
       {
         "platz": 8,
-        "name": "T07",
+        "name": "T03",
+        "punkte": 37
+      },
+      {
+        "platz": 9,
+        "name": "T14",
+        "punkte": 36
+      },
+      {
+        "platz": 9,
+        "name": "T46",
+        "punkte": 36
+      },
+      {
+        "platz": 11,
+        "name": "Die Neigschmecktn",
         "punkte": 35
       },
       {
-        "platz": 9,
-        "name": "T19",
-        "punkte": 34
+        "platz": 12,
+        "name": "T07",
+        "punkte": 33
       },
       {
-        "platz": 9,
-        "name": "T03",
-        "punkte": 34
-      },
-      {
-        "platz": 11,
-        "name": "T28",
-        "punkte": 32
-      },
-      {
-        "platz": 11,
-        "name": "T38",
-        "punkte": 32
-      },
-      {
-        "platz": 13,
-        "name": "T16",
-        "punkte": 26
+        "platz": 12,
+        "name": "T45",
+        "punkte": 33
       },
       {
         "platz": 14,
-        "name": "T14",
-        "punkte": 0
+        "name": "T47",
+        "punkte": 31
       }
     ]
   },
@@ -540,60 +540,60 @@
     "datei": "260521_000000.jpg",
     "abend": "2026-05-21",
     "sicherheit": "sicher",
-    "stand": "zwischenstand",
-    "begruendung": "Digitales Board, Zwischenstand VOR Eintragung des Jokers (Joker-Spalte bei mehreren Teams leer, u.a. bei 'Neigschmecktn'). R1-4 von 'Neigschmecktn' = 12,7,13,8 - exakter Treffer zu Felix' Teil1-4 fuer Mai 26 (12,7,13,8); mit noch fehlendem Bonus von 7 ergibt sich das bekannte Endergebnis 47 Pkt./Platz 1. Gezeigter Zwischenstand (40 Pkt., Platz 5) ist NICHT final. 11 Teams aktiv, passend zu Mai 26 (laut Hinweis einzig 11-Team-Abend).",
+    "stand": "endstand",
+    "begruendung": "Digitales Board, ENDSTAND (Joker-Spalte bei allen Teams gefuellt, R1-4 + Joker = Gesamt in jeder Zeile). 11 Teams. Eigenes Team: R1-4 = 12,7,13,8, Joker 7, Gesamt 47, Platz 1 -- deckt sich mit data.json. Korrektur 06.11.2026: Die fruehere Lesung als Zwischenstand vor der Joker-Vergabe war falsch; Punkte sind neu vom Foto abgelesen.",
     "datum_im_bild": null,
     "dublette_von": null,
     "teams": [
       {
         "platz": 1,
+        "name": "Die Neigschmecktn",
+        "punkte": 47
+      },
+      {
+        "platz": 2,
+        "name": "T18",
+        "punkte": 46
+      },
+      {
+        "platz": 3,
+        "name": "T02",
+        "punkte": 45
+      },
+      {
+        "platz": 4,
+        "name": "T01",
+        "punkte": 43
+      },
+      {
+        "platz": 4,
         "name": "T04",
         "punkte": 43
       },
       {
-        "platz": 1,
+        "platz": 4,
         "name": "T03",
         "punkte": 43
       },
       {
-        "platz": 3,
+        "platz": 7,
         "name": "T15",
         "punkte": 41
       },
       {
-        "platz": 3,
+        "platz": 7,
         "name": "T08",
         "punkte": 41
       },
       {
-        "platz": 5,
+        "platz": 9,
         "name": "T05",
         "punkte": 40
       },
       {
-        "platz": 5,
-        "name": "Die Neigschmecktn",
-        "punkte": 40
-      },
-      {
-        "platz": 7,
-        "name": "T18",
-        "punkte": 39
-      },
-      {
-        "platz": 7,
-        "name": "T02",
-        "punkte": 39
-      },
-      {
-        "platz": 9,
+        "platz": 10,
         "name": "T10",
         "punkte": 38
-      },
-      {
-        "platz": 10,
-        "name": "T01",
-        "punkte": 36
       },
       {
         "platz": 11,
@@ -862,6 +862,92 @@
         "platz": 16,
         "name": "T23",
         "punkte": 28
+      }
+    ]
+  },
+  {
+    "datei": "261105_222155.jpeg",
+    "abend": "2026-11-05",
+    "sicherheit": "sicher",
+    "stand": "endstand",
+    "begruendung": "Digitales Board, ENDSTAND (Joker-Spalte bei allen Teams gefuellt, R1-4 + Joker = Gesamt in jeder Zeile; angezeigter Durchschnitt 39,67 = Summe/15). 15 Teams. Eigenes Team: R1-4 = 9,6,10,10, Joker 6, Gesamt 41, Platz 7 -- deckt sich mit data.json. Ausgelesen am 06.11.2026.",
+    "datum_im_bild": null,
+    "dublette_von": null,
+    "teams": [
+      {
+        "platz": 1,
+        "name": "T01",
+        "punkte": 54
+      },
+      {
+        "platz": 2,
+        "name": "T08",
+        "punkte": 51
+      },
+      {
+        "platz": 3,
+        "name": "T02",
+        "punkte": 50
+      },
+      {
+        "platz": 4,
+        "name": "T13",
+        "punkte": 48
+      },
+      {
+        "platz": 5,
+        "name": "T06",
+        "punkte": 43
+      },
+      {
+        "platz": 6,
+        "name": "T03",
+        "punkte": 42
+      },
+      {
+        "platz": 7,
+        "name": "Die Neigschmecktn",
+        "punkte": 41
+      },
+      {
+        "platz": 7,
+        "name": "T48",
+        "punkte": 41
+      },
+      {
+        "platz": 9,
+        "name": "T18",
+        "punkte": 40
+      },
+      {
+        "platz": 10,
+        "name": "T20",
+        "punkte": 38
+      },
+      {
+        "platz": 11,
+        "name": "T10",
+        "punkte": 35
+      },
+      {
+        "platz": 12,
+        "name": "T09",
+        "punkte": 33
+      },
+      {
+        "platz": 13,
+        "name": "T07",
+        "punkte": 29
+      },
+      {
+        "platz": 14,
+        "name": "T33",
+        "punkte": 26
+      },
+      {
+        "platz": 15,
+        "name": "T30",
+        "punkte": 24
       }
     ]
   }

@@ -2,6 +2,51 @@
 
 Alle nennenswerten Änderungen am Kneipenquiz-Tool werden hier festgehalten.
 
+## v0.11.1 (06.11.2026, 10:22 Uhr)
+
+### Verbessert
+
+- **Die Kopfzeile „Kategorie“ / „Punkte (0–5)“ über Teil 1 entfällt** im Fenster „Neuer Abend“ / „Abend bearbeiten“.
+- **Die sechs Kacheln der Übersicht sind durchgehend zentriert** — Überschrift, Wert und Unterzeile. Die Unterzeile von „Ø Richtig“ („von max. 60 Fragen, ohne Joker“) steht auf einer Zeile.
+- **„Stärke vs. Konsistenz“: Beschriftungen überdecken sich nicht mehr und ragen nicht über den Rand.** Jede Beschriftung steht, wo Platz ist, direkt rechts neben ihrem Punkt; sonst weicht sie in eine freie Lage aus, wenn nötig mit einer feinen Verbindungslinie. Die Lagen werden bei jedem Zeichnen neu bestimmt und passen darum auch nach Größenänderung und in der Vollansicht. Vorher lagen etwa Geographie und Geschichte — beide bei Ø 3,0 und σ 1,0 — übereinander.
+- **„Platzierung & Quote“: Die linke Achse zeigt 0 % bis 100 %** statt der Rohquote 0 bis 1,0.
+- **„Platzierung & Quote“ hat eine Legende** — Balken „% richtig“, Linie „Platzierung“ — als Leiste zwischen Überschrift und Diagramm.
+- **Gegner-Reiter: Die Spalte „Einstufung“ heißt jetzt „Wir gegenüber dem Feld“** und sagt „besser als das Feld“, „wie das Feld“ oder „schwächer als das Feld“ statt „stark / durchschnittlich / schwach“. Gemeint war immer das eigene Team; die Schwelle bleibt eine halbe Standardabweichung des Feldes.
+- **Gegnerbilanz: neue Spalte „Gegenüber uns“** mit klarer Aussage aus dem mittleren Punktabstand — „deutlich besser als wir“ (ab 5 Punkten), „etwas besser als wir“ (ab 2), „etwa gleich stark“, „etwas schwächer als wir“, „deutlich schwächer als wir“. Gilt auch im Web-Dashboard.
+- **Web-Dashboard, geprüft in Smartphone- (390 px) und Desktop-Ansicht:**
+  - Kachel „Schwächste Kategorie“ bricht nur noch am Schrägstrich um („Wissensch./“ · „Natur“) statt mitten im Wort („Natu-r“).
+  - „Platzierung & Quote“ und „Eigene Punkte und Feldmittel“: Die Legende steht unter dem Titel statt über ihm; die Platz-Achse beginnt bei 1 statt bei 0; Prozentachse „60 %“.
+  - Lange Diagrammtitel tragen ihren Zusatz in einer zweiten Zeile — auf dem Telefon wurden sie abgeschnitten („… ohne J“).
+  - Dezimalkomma in Ranking-Balken, Achsen und Hover; Prozente mit geschütztem Leerzeichen, damit „58“ und „%“ nicht auf zwei Zeilen fallen; ebenso „Bandbreite 2–4“.
+  - Gegner-Tabellen: Zahlen sortieren numerisch (als Text stand „14“ vor „7“) und erscheinen mit Komma und Vorzeichen („+3,5“). Die Aussage-Spalten stehen direkt hinter Monat bzw. Team, die erste Spalte bleibt beim Wischen stehen — auf dem Telefon lagen Abstand und Urteil vorher außer Sicht. Spaltenköpfe wie in der Eingabe-GUI („Rückstand zur Spitze“, „Gemeinsame Abende“).
+  - Die Streuung σ im Diagramm „Verlässlichkeit je Kategorie“ rechnet wie die GUI (Gesamt- statt Stichprobenstreuung); vorher stand für Aktuelles 0,87 dort und 0,83 hier.
+- **„Letzter Abend“ misst das Ergebnis am Feld desselben Abends** statt an den eigenen Rohpunkten früherer Abende. Ein leichter Fragensatz hebt alle Teams; so hieß es zum 05.11.2026 „deutlich über dem Schnitt — ein guter Lauf“, obwohl die 41 Punkte nur 1,3 über dem Feldmittel lagen. Jetzt: „1,3 Punkte über dem Feldmittel des Abends (Ø 39,7) — also etwa auf Höhe des Feldes“, gleichlautend mit dem Gegner-Reiter. Ohne Ergebnistafel dient die Platzierung als Maßstab. Auch im Web-Dashboard.
+- **Form-Trend: „die Form festigt sich“ / „die Form flacht ab“ entfallen.** Die Rohquote schwankt mit der Schwierigkeit der Fragen und taugt allein nicht als Formurteil; der Satz nennt jetzt nur noch ihre Entwicklung.
+- **Erkenntnisse ohne irreführende Durchschnitte.** Bei einem einzigen Wert steht der Wert selbst („Geographie: 1× gewählt, 2 Punkte, nicht getroffen“), bei lauter gleichen Werten „jedes Mal“ („Klassische Bildungsthemen (3×, jedes Mal 0/5)“ statt „Ø 0,0/5“). Die Joker-Empfehlung nennt Treffer und Punkteschnitt mit ihrer Grundlage („als Joker 2 von 2 getroffen; über alle Abende Ø 2,6/5“ statt „Trefferquote 100 %, Ø 2,6/5“). Der Ausblick behauptet für die Sonderrunde keinen „soliden Mittelwert“ mehr. Bei den Wackel-Kandidaten entfällt die doppelte Nennung des letzten Werts.
+- **Einheitliche Zahlen:** Durchschnitte überall mit einer Nachkommastelle und Dezimalkomma — auch in den Kacheln („7,7“, „Ø 13,7 Teams“), an den Balken des Kategorie-Rankings und an den Achsen von „Stärke vs. Konsistenz“; Prozente mit Leerzeichen („56 %“).
+- **Die Heatmap ordnet die Kategorien wie das Ranking daneben** — die stärkste oben. Bisher stand dort die schwächste oben.
+- **Die Platz-Achse in „Platzierung & Quote“ beginnt bei Platz 1** (Striche bei 1, 5, 10, 15) statt bei einem Platz 0, den es nicht gibt.
+- **Die Texte im Reiter „Erkenntnisse“ lassen sich markieren und kopieren** (Maus ziehen, Strg+C). Das Aussehen bleibt gleich, das Mausrad scrollt weiter die Seite.
+- **„Form-Trend“: Der Satz zur Platzierung knüpft passend an die Quote an.** Bisher begann er stets mit „Auch …“, selbst wenn die Quote stagnierte oder sank. Jetzt heißt es je nach Lage „Auch …“, „Bei gleichbleibender Quote …“ oder „Trotz sinkender/steigender Quote …“.
+- **Reiter „Erkenntnisse“ zweispaltig.** Die Abschnitte stehen in Lesereihenfolge erst links, dann rechts, geteilt bei etwa gleicher Spaltenhöhe; der Text bricht an der Spaltenbreite um. Auf einem breiten Fenster passt der Reiter damit ohne Scrollen.
+- **Gegner-Reiter neu geordnet: Diagramme oben, darunter die beiden Tabellen nebeneinander.** Untereinander in voller Breite blieb rechts viel Fläche leer.
+- **Gegner-Tabellen sind sortierbar** — Klick auf den Spaltenkopf, zweiter Klick kehrt um, ein Pfeil zeigt Spalte und Richtung (wie in der Übersicht). Zahlen sortieren numerisch, „Monat“ chronologisch, „Wir gegenüber dem Feld“ und „Gegenüber uns“ nach Stärke; leere Zellen stehen stets am Ende. Die Sortierung bleibt beim Auffrischen erhalten.
+- **Gegner-Tabellen mit zweizeiligen Spaltenköpfen** — dadurch schmaler und ohne Abkürzungen („Rückstand zur Spitze“, „Gemeinsame Abende“ statt „z. Spitze“, „Gem.“).
+- **Gegner-Reiter: Die Textspalten „Wir gegenüber dem Feld“ und „Gegenüber uns“ sind linksbündig.**
+- **„Abstand zur Spitze“: Die Wertbeschriftung des höchsten Balkens stößt nicht mehr an den oberen Rahmen.**
+- **„Eigene Punkte und Feldmittel“: Die Legende steht als Leiste zwischen Überschrift und Diagramm** und überdeckt keine Säulen mehr.
+- **Der Abend vom 05.11.2026 ist ausgewertet** (15 Teams, Endstand) und erscheint im Gegner-Reiter nicht mehr als „ohne Auswertung“.
+
+### Behoben
+
+- **Gegner-Reiter: Jan 26 und Mai 26 sind Endstände, keine Zwischenstände.** Beide Ergebnisfotos zeigen die Joker-Spalte bei allen Teams gefüllt, und jede Zeile geht auf (R1–R4 + Joker = Gesamt). Die frühere Auswertung hatte die Joker-Spalte für leer gehalten und die Punkte großenteils falsch gelesen: im Januar zum Teil Teams, die an dem Abend gar nicht auf der Tafel stehen, im Mai die Werte vor dem Joker. Beide Abende sind neu vom Foto abgelesen (14 und 11 Teams) und zählen jetzt in Trend, Gegnerbilanz und Einordnung mit. Die zweite Januar-Aufnahme zeigt dieselbe Tafel schräg fotografiert und ist als Dublette vermerkt. Drei Teams aus dem Januar sind neu im Schlüssel (T45–T47); T28 und T38 gingen allein auf die falsche Lesung zurück und sind entfallen.
+- **Die Legende „Eigene Punkte und Feldmittel“ nennt den Zwischenstand nur noch, wenn es einen gibt.**
+- **„Platzierung & Quote“ stapelt keine Platz-Achsen mehr.** Jedes Auffrischen des Dashboards legte eine weitere Platz-Achse samt Linie deckungsgleich über die alten; nach drei Durchläufen lagen fünf Achsen in der Figur. Jetzt sind es stets zwei.
+- **Der Programmkopf nennt die richtige Version.** Er zeigte seit v0.11.0 noch „0.10.0“.
+
+- **Die Übersicht zeigt wieder alle Abende, wenn ein neuer Abend auf das Datum eines geplanten fällt.** Bisher blieb der geplante Eintrag neben dem gespielten stehen. Beide trugen dasselbe Datum, und die Übersicht brach nach dem ersten der beiden ab — sichtbar blieb nur ein einziger Abend. Jetzt ersetzt der gespielte Abend den geplanten. Ein zweiter gespielter Abend auf einem schon belegten Datum wird mit dem Hinweis auf „Bearbeiten“ abgewiesen. Die Doppelung vom 05.11.2026 ist aus `data.json` entfernt; der gespielte Abend (41 Punkte) bleibt.
+- **Summenlinie und Teilsumme stehen bündig unter den Punktefeldern.** Die doppelte Linie und die Teilsumme unter den drei Punktefeldern jedes Teils standen nach rechts versetzt. Die Linie ist nun genau so breit wie das Punktefeld, die Summe steht mittig darunter.
+
 ## v0.11.0 (23.10.2026, 20:47 Uhr)
 
 ### Neu

@@ -383,6 +383,9 @@ PLOTLY_LAYOUT = dict(
     plot_bgcolor="rgba(0,0,0,0)",
     font=dict(color="#374151", family="Roboto, sans-serif"),
     margin=dict(l=40, r=40, t=50, b=50),
+    # Dezimalkomma und Tausenderpunkt fuer alle Zahlen, die Plotly selbst
+    # formatiert (Achsen, Hover) -- vorher "3.2" neben "3,2" im Text.
+    separators=",.",
     hoverlabel=dict(bgcolor="#ffffff", font_color="#1f2937", bordercolor="#7f8c8d"),
 )
 
@@ -487,14 +490,14 @@ kpi_data = [
     ("Punkte pro Abend", _de(avg_points),
      f"inkl. Joker · <span style='white-space:nowrap'>Spanne {min(night_points)}–{max(night_points)}</span><br>"
      f"ohne Joker Ø {_de(avg_spiel_points)} Pkt.", ""),
-    ("Ø Richtig", f"{avg_pct:.0%}", f"von max. 60 Fragen (ohne Joker)", ""),
+    ("Ø Richtig", f"{avg_pct * 100:.0f}\u00a0%", f"von max. 60 Fragen (ohne Joker)", ""),
     ("Beste Platzierung", f"{best_placement}.", f"{best_placement_q['Monat']} ({best_placement_q['Von']} Teams)", ""),
-    ("Ø Feldposition", f"{avg_feldpos:.0f} %",
+    ("Ø Feldposition", f"{avg_feldpos:.0f}\u00a0%",
      f"Ø Platz {_de(avg_placement)} bei {_de(np.mean([q['Von'] for q in quiz_nights if q['Von']]))} Teams",
      "" if avg_feldpos < 50 else "bad"),
     # Kurzes Label: "Trend Richtig-Quote" brach als einziges um und machte
     # seine Karte hoeher als die fuenf daneben.
-    ("Trend Quote", f"{trend_arrow} {abs(trend_delta):.0%}",
+    ("Trend Quote", f"{trend_arrow} {abs(trend_delta) * 100:.0f}\u00a0%",
      f"{quiz_nights[-1]['Monat']} vs. {quiz_nights[-2]['Monat']} (ohne Joker)", trend_class),
 ]
 
@@ -551,7 +554,7 @@ for col, (label, value, sub, cls) in zip(cols2, kpi_data2):
     col.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">{label}</div>
-        <div class="kpi-value" style="font-size:1.3rem;">{value}</div>
+        <div class="kpi-value" style="font-size:1.3rem;">{value.replace("/", "/<wbr>")}</div>
         <div class="{sub_cls}">{sub}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -690,19 +693,27 @@ with st.container():
 
     fig_trend.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text="Platzierung & Quote pro Quizabend", font=dict(size=16)),
+        title=dict(text="Platzierung & Quote pro Quizabend", font=dict(size=16),
+                   y=0.98, yref="container", yanchor="top"),
         annotations=annotations,
         yaxis=dict(
-            title="% richtig (ohne Joker)", tickformat=".0%", range=[0, 1],
-            dtick=1 / n_intervals,
+            title="% richtig (ohne Joker)", range=[0, 1],
+            # Beschriftung "60 %" mit Leerzeichen wie ueberall im Dashboard;
+            # tickformat ".0%" schrieb "60%".
+            tickvals=[i / n_intervals for i in range(n_intervals + 1)],
+            ticktext=[f"{i * 100 // n_intervals}\u00a0%" for i in range(n_intervals + 1)],
             gridcolor="rgba(0,0,0,0.06)", side="left",
         ),
         yaxis2=dict(
             title="Platzierung", overlaying="y", side="right",
             range=[max_nice, 0],
-            dtick=max_nice / n_intervals,
+            # Striche ab Platz 1 -- "0" war ein Platz, den es nicht gibt.
+            tickvals=[1] + list(range(5, max_nice + 1, 5)),
             showgrid=False,
         ),
+        # Legende als Leiste zwischen Titel und Diagramm: auf dem Telefon
+        # lag sie sonst ueber dem Titel.
+        margin_t=90,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
         height=CHART_H,
         bargap=0.4,
@@ -738,7 +749,7 @@ with col1:
         x=df_bar["Mittelwert"],
         orientation="h",
         marker=dict(color=colors, line=dict(width=0)),
-        text=[f"{v:.1f}" for v in df_bar["Mittelwert"]],
+        text=[f"{v:.1f}".replace(".", ",") for v in df_bar["Mittelwert"]],
         textposition="outside",
         textfont=dict(color="#374151", size=13),
         hovertemplate="%{y}: %{x:.2f}/5<extra></extra>",
@@ -783,7 +794,9 @@ with col2:
     ))
     fig_heat.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text="Punkte je Kategorie und Monat (0 bis 5, ohne Joker)", font=dict(size=16)),
+        title=dict(text="Punkte je Kategorie und Monat<br>"
+                        "<span style='font-size:12px'>0 bis 5 Punkte, ohne Joker</span>",
+                   font=dict(size=16)),
         xaxis=dict(tickfont=dict(size=12)),
         yaxis=dict(tickfont=dict(size=11), automargin=True),
         height=CHART_H,
@@ -988,7 +1001,7 @@ with col2:
     avg_joker_pct = np.mean(joker_pct)
     fig_joker.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text=f"Joker-Bonus (Ø {avg_joker_pct:.0%} von max. {max_bonus})",
+        title=dict(text=f"Joker-Bonus (Ø {avg_joker_pct * 100:.0f}\u00a0% von max. {max_bonus})",
                    font=dict(size=16)),
         yaxis=dict(range=[0, 11], gridcolor="rgba(0,0,0,0.05)", title="Joker-Punkte",
                    dtick=2),
@@ -1010,7 +1023,9 @@ with col3:
     # Pixel-Offsets wanderten nicht mit und mieden Kollisionen, die es
     # längst nicht mehr gab. Auf einer Achse stehen die Namen gesetzt.
     df_cons = df_cat[df_cat["Kategorie"] != "Sonderrunde"].copy()
-    df_cons["Std"] = df_cons[months].std(axis=1)
+    # ddof=0 wie die Eingabe-GUI (statistics.pstdev) -- sonst stand fuer
+    # dieselbe Kategorie hier ein anderes σ als dort (Aktuelles 0,87 / 0,83).
+    df_cons["Std"] = df_cons[months].std(axis=1, ddof=0)
     df_cons["Min"] = df_cons[months].min(axis=1)
     df_cons["Max"] = df_cons[months].max(axis=1)
     # Plotly zeichnet das erste Element unten: absteigend sortieren stellt
@@ -1140,39 +1155,64 @@ else:
             # Dashboard "besser als" heisst.
             _diff = -_e["abstand_mittel"]
             _info = _einordnung_by_abend.get(_e["abend"])
-            # Alle Spalten als str: Die Zwischenstand-Zeilen tragen "–"
-            # statt einer Zahl (siehe unten) -- eine gemischte Spalte
-            # (int + str) scheitert bei der Arrow-Serialisierung, die
-            # st.dataframe fuer die Anzeige nutzt.
+            # Zahlen als Zahlen: Nur so sortiert ein Klick auf den
+            # Spaltenkopf numerisch (als Text stand "14" vor "7"). Fehlende
+            # Werte sind None statt "–" -- st.dataframe zeigt sie leer, und
+            # die Spalte bleibt fuer Arrow einheitlich numerisch.
             _rows_abend.append({
                 "Monat": _e["monat"],
-                "Teams": str(_e["teams_anzahl"]),
-                "Eigene Pkt.": str(_e["eigene_punkte"]),
-                "Siegerpunkte": str(_e["siegerpunkte"]),
-                "Rückstand z. Spitze": str(_e["abstand_spitze"]),
-                "Feldmittel": _de(_e["feld_mittelwert"]),
-                "Abstand zum Feld": f"{_diff:+.1f}".replace(".", ","),
-                "Einstufung": _info["einstufung"] if _info else "–",
+                "Teams": _e["teams_anzahl"],
+                "Eigene Punkte": _e["eigene_punkte"],
+                "Siegerpunkte": _e["siegerpunkte"],
+                "Rückstand zur Spitze": _e["abstand_spitze"],
+                "Feldmittel": round(_e["feld_mittelwert"], 1),
+                "Abstand zum Feld": round(_diff, 1),
+                "Wir gegenüber dem Feld": _info["einstufung"] if _info else "–",
             })
         else:
             _suffix = (" (Zwischenstand)" if _e["stand"] == "zwischenstand"
                       else " (ohne Auswertung)")
             _rows_abend.append({
                 "Monat": _e["monat"] + _suffix,
-                "Teams": "–", "Eigene Pkt.": "–", "Siegerpunkte": "–",
-                "Rückstand z. Spitze": "–", "Feldmittel": "–",
-                "Abstand zum Feld": "–", "Einstufung": "–",
+                "Teams": None, "Eigene Punkte": None, "Siegerpunkte": None,
+                "Rückstand zur Spitze": None, "Feldmittel": None,
+                "Abstand zum Feld": None, "Wir gegenüber dem Feld": "–",
             })
-    df_gegner_abend = pd.DataFrame(_rows_abend)
+    # Aussage-Spalten direkt hinter den Monat: Auf dem Telefon passen nur
+    # drei, vier Spalten in die Breite -- vorher lagen "Abstand zum Feld"
+    # und die Einstufung rechts ausserhalb und waren nur durch Wischen
+    # erreichbar.
+    df_gegner_abend = pd.DataFrame(_rows_abend)[[
+        "Monat", "Wir gegenüber dem Feld", "Abstand zum Feld", "Eigene Punkte",
+        "Feldmittel", "Siegerpunkte", "Rückstand zur Spitze", "Teams"]]
 
+    def _zahl_de(v, vorzeichen=False):
+        """Anzeige mit Dezimalkomma ("+3,5"); sortiert wird weiter nach dem
+        Zahlenwert darunter (Styler formatiert nur die Anzeige).
+        NumberColumn(format="localized") liess Nachkommastelle und
+        Pluszeichen fallen ("-6" statt "-6,0")."""
+        if pd.isna(v):
+            return ""
+        return (f"{v:+.1f}" if vorzeichen else f"{v:.1f}").replace(".", ",")
+
+    # Monat schmal, solange kein Zusatz "(Zwischenstand)" Platz braucht --
+    # auf dem Telefon nahm die Spalte sonst die halbe Breite ein.
+    _monat_breite = ("medium" if df_gegner_abend["Monat"].str.contains(r"\(").any()
+                     else "small")
     with st.expander(f"Ergebnisse je Abend ({len(df_gegner_abend)} Abende)"):
         st.dataframe(
-            df_gegner_abend, width='content', hide_index=True,
+            df_gegner_abend.style.format(
+                {"Feldmittel": _zahl_de,
+                 "Abstand zum Feld": lambda v: _zahl_de(v, vorzeichen=True)}),
+            width='content', hide_index=True,
             # "medium" statt der automatischen Breite: Sonst schneidet die
             # Monat-Spalte den Zusatz "(Zwischenstand)"/"(ohne Auswertung)"
             # ab -- die automatische Messung richtet sich an der kuerzesten
             # Zeile aus, nicht an der laengsten.
-            column_config={"Monat": st.column_config.TextColumn("Monat", width="medium")},
+            column_config={
+                "Monat": st.column_config.TextColumn("Monat", width=_monat_breite,
+                                                     pinned=True),
+            },
         )
 
     # --- Tabelle "Gegnerbilanz" -- nur aussagekraeftige Gegner, absteigend
@@ -1188,18 +1228,26 @@ else:
         _abstand = -_v["punktabstand_mittel"]
         _rows_bilanz.append({
             "Team": _kennung,
-            "Gem. Abende": _v["gemeinsame_abende"],
+            "Gemeinsame Abende": _v["gemeinsame_abende"],
             "Vor uns": _v["vor_uns"],
             "Hinter uns": _v["hinter_uns"],
             "Gleichstand": _v["gleichstand"],
-            "Ø Punktabstand": f"{_abstand:+.1f}".replace(".", ","),
+            "Ø Punktabstand": round(_abstand, 1),
+            "Gegenüber uns": _v["urteil"],
         })
-    df_gegner_bilanz = pd.DataFrame(_rows_bilanz)
+    # Wie oben: Aussage direkt hinter das Team (Telefonbreite).
+    df_gegner_bilanz = pd.DataFrame(_rows_bilanz)[[
+        "Team", "Gegenüber uns", "Ø Punktabstand", "Gemeinsame Abende",
+        "Vor uns", "Hinter uns", "Gleichstand"]]
 
     with st.expander(f"Gegnerbilanz ({len(df_gegner_bilanz)} Teams mit mind. "
                      f"{_g_meta['mindest_gemeinsame_abende']} gemeinsamen "
                      f"Endstand-Abenden)"):
-        st.dataframe(df_gegner_bilanz, width='content', hide_index=True)
+        st.dataframe(df_gegner_bilanz.style.format(
+                         {"Ø Punktabstand": lambda v: _zahl_de(v, vorzeichen=True)}),
+                     width='content', hide_index=True,
+                     column_config={
+                         "Team": st.column_config.TextColumn("Team", pinned=True)})
         st.markdown(
             '<p class="info-text">Positive Werte beim Punktabstand: Sie '
             'liegen im Schnitt vorn.</p>', unsafe_allow_html=True)
@@ -1220,7 +1268,8 @@ else:
         ))
         fig_gegner_abstand.update_layout(
             **PLOTLY_LAYOUT,
-            title=dict(text="Abstand zur Spitze je Abend (Endstand-Abende)",
+            title=dict(text="Abstand zur Spitze je Abend<br>"
+                            "<span style='font-size:12px'>nur Endstand-Abende</span>",
                       font=dict(size=16)),
             yaxis=dict(title="Rückstand (Pkt.)", gridcolor="rgba(0,0,0,0.06)"),
             xaxis=dict(tickfont=dict(size=11)),
@@ -1256,10 +1305,14 @@ else:
         fig_gegner_feld.update_layout(
             **PLOTLY_LAYOUT,
             title=dict(text="Eigene Punkte und Feldmittel je Abend",
-                      font=dict(size=16)),
+                      font=dict(size=16), y=0.98, yref="container",
+                      yanchor="top"),
             yaxis=dict(title="Punkte", gridcolor="rgba(0,0,0,0.06)"),
             xaxis=dict(categoryorder="array", categoryarray=_monate_alle,
                       tickfont=dict(size=11)),
+            # Legende als Leiste zwischen Titel und Diagramm -- sie lag
+            # sonst ueber dem Titel (Telefon wie Desktop).
+            margin_t=90,
             legend=dict(orientation="h", yanchor="bottom", y=1.02,
                        xanchor="center", x=0.5),
             height=CHART_H,
@@ -1278,7 +1331,7 @@ st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 _sektionen = []
 if qd is not None:
     try:
-        _sektionen = qd.compute_insights(quiz_nights)
+        _sektionen = qd.compute_insights(quiz_nights, ergebnisse)
     except Exception:  # pragma: no cover - Deployment-Absicherung
         _sektionen = []
 

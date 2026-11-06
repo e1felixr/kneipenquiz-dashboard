@@ -124,6 +124,13 @@ def _de(x, dez=1):
     return f"{x:.{dez}f}".replace(".", ",")
 
 
+def _pct(x):
+    """Anteil 0..1 als ganze Prozentzahl mit Leerzeichen ("56 %") -- wie in
+    den Tabellen der GUI. Geschuetztes Leerzeichen: Auf dem Telefon brach
+    "58" sonst vom "%" ab."""
+    return f"{x * 100:.0f} %"
+
+
 def format_monat(year, month):
     """Gibt den Monat als Anzeige-String zurueck, z.B. 'Apr 26' fuer April 2026."""
     return f"{GERMAN_MONTHS[month - 1]} {str(year)[-2:]}"
@@ -306,23 +313,32 @@ def compute_categories(quiz_nights, months):
     return result
 
 
-def quiznight_from_form(form):
-    """Erstellt einen vollstaendigen quiz_night-Eintrag aus den Formulardaten."""
+def datum_from_form(form):
+    """ISO-Datum ('JJJJ-MM-TT') aus den Formulardaten.
+
+    "day" ist seit v0.11.0 im Formular eingebbar (Spinbox "Termin"). Fehlt
+    er oder ist er leer, bleibt es beim Monatsersten wie zuvor -- der Wert
+    dient als Sortier- und Verknuepfungsschluessel (ergebnisse.json, iid der
+    Uebersichtstabelle) und darf nie None werden. Ein zu grosser Tag wird
+    auf das Monatsende geklemmt, statt ein ungueltiges ISO-Datum wie
+    '2026-02-31' zu bilden.
+    """
     year = form["year"]
     month = form["month"]
-    monat = format_monat(year, month)
-
-    # "day" ist seit v0.11.0 im Formular eingebbar (Spinbox "Termin"). Fehlt
-    # er oder ist er leer, bleibt es beim Monatsersten wie zuvor -- der Wert
-    # dient als Sortier- und Verknuepfungsschluessel (ergebnisse.json) und
-    # darf nie None werden. Ein zu grosser Tag wird auf das Monatsende
-    # geklemmt, statt ein ungueltiges ISO-Datum wie '2026-02-31' zu bilden.
     day = form.get("day") or 1
     try:
         day = max(1, min(int(day), monthrange(year, month)[1]))
     except (TypeError, ValueError):
         day = 1
-    datum = f"{year:04d}-{month:02d}-{day:02d}"
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def quiznight_from_form(form):
+    """Erstellt einen vollstaendigen quiz_night-Eintrag aus den Formulardaten."""
+    year = form["year"]
+    month = form["month"]
+    monat = format_monat(year, month)
+    datum = datum_from_form(form)
 
     teile = form["teile"]
     teil_sums = [sum(slot["punkte"] for slot in block) for block in teile]
@@ -527,6 +543,22 @@ def validate_form(form, *, existing_quiz_nights, edit_datum=None):
         errors.append("Jahr muss eine ganze Zahl zwischen 2000 und 2099 sein.")
     if not isinstance(month, int) or not (1 <= month <= 12):
         errors.append("Monat muss eine ganze Zahl zwischen 1 und 12 sein.")
+    else:
+        # Das Datum ist Schluessel eines Abends (iid der Uebersichtstabelle).
+        # Ein zweiter gespielter Abend auf demselben Datum liess die Tabelle
+        # nach dem ersten Treffer abbrechen ("Item ... already exists") --
+        # sichtbar blieb dann nur noch ein einziger Abend. Ein GEPLANTER
+        # Abend auf dem Datum ist dagegen kein Konflikt: _on_save ersetzt ihn.
+        datum = datum_from_form(form)
+        belegt = next(
+            (n for n in existing_quiz_nights
+             if n.get("Datum") == datum and datum != edit_datum
+             and not n.get("Geplant", False)),
+            None)
+        if belegt is not None:
+            errors.append(
+                f"Am {datum[8:10]}.{datum[5:7]}.{datum[0:4]} ist bereits ein "
+                f"Abend gespeichert – bitte diesen über „Bearbeiten“ ändern.")
 
     teile = form.get("teile", [])
     all_slots = []
@@ -600,8 +632,13 @@ def _classify_theme(thema):
     return "sonst"
 
 
-def compute_insights(quiz_nights):
+def compute_insights(quiz_nights, ergebnisse=None):
     """Leitet strukturierte Beobachtungen und Empfehlungen aus den Quizabenden ab.
+
+    ergebnisse -- optional, wie von load_ergebnisse(). Mit ihnen misst
+    "Letzter Abend" das eigene Ergebnis am Feld desselben Abends statt an
+    den eigenen Rohpunkten frueherer Abende (die mit der Schwierigkeit der
+    Fragen schwanken). Ohne sie dient die Platzierung als Massstab.
 
     Filtert zuerst ueber gespielte_abende() -- ein geplanter Abend (noch
     ohne Ergebnis) taucht in keiner Beobachtung auf.
@@ -648,19 +685,21 @@ def compute_insights(quiz_nights):
         pct_first = mean(q["Pct_richtig"] for q in first_half)
         pct_last = mean(q["Pct_richtig"] for q in last_half)
         diff = pct_last - pct_first
+        # Richtung der Quote merken: Der Platzierungssatz darunter knuepft
+        # daran an ("Auch ..." nur bei gleicher Richtung, sonst "Trotz ..."
+        # bzw. "Bei gleichbleibender Quote ...").
+        quote = "auf" if diff > 0.03 else ("ab" if diff < -0.03 else "gleich")
         if diff > 0.03:
             items.append({"kind": "info",
-                "text": f"Die Quote zieht an: von {pct_first:.0%} in der frühen auf "
-                        f"{pct_last:.0%} in der jüngsten Hälfte — die Form festigt "
-                        f"sich über {n} Abende hinweg."})
+                "text": f"Die Quote steigt: von {_pct(pct_first)} in der frühen auf "
+                        f"{_pct(pct_last)} in der jüngsten Hälfte der {n} Abende."})
         elif diff < -0.03:
             items.append({"kind": "warnung",
-                "text": f"Die Form flacht ab: von {pct_first:.0%} in der frühen auf "
-                        f"{pct_last:.0%} in der jüngsten Hälfte — die Tendenz zeigt "
-                        f"nach unten."})
+                "text": f"Die Quote sinkt: von {_pct(pct_first)} in der frühen auf "
+                        f"{_pct(pct_last)} in der jüngsten Hälfte der {n} Abende."})
         else:
             items.append({"kind": "info",
-                "text": f"Die Quote ruht stabil um {(pct_first + pct_last) / 2:.0%} "
+                "text": f"Die Quote ruht stabil um {_pct((pct_first + pct_last) / 2)} "
                         f"— weder Aufwärts- noch Abwärtsbewegung."})
 
         platz_first = [q["Platzierung"] for q in first_half
@@ -670,14 +709,21 @@ def compute_insights(quiz_nights):
         if platz_first and platz_last:
             p_first = mean(platz_first)
             p_last = mean(platz_last)
+            werte = f"Ø {_de(p_first, 1)} früher, Ø {_de(p_last, 1)} zuletzt."
             if p_last < p_first - 0.5:
-                items.append({"kind": "info",
-                    "text": f"Auch die mittlere Platzierung rückt nach vorn: "
-                            f"Ø {_de(p_first, 1)} früher, Ø {_de(p_last, 1)} zuletzt."})
+                anfang = {"auf": "Auch die mittlere Platzierung rückt nach vorn",
+                          "gleich": "Bei gleichbleibender Quote rückt die "
+                                    "mittlere Platzierung nach vorn",
+                          "ab": "Trotz sinkender Quote rückt die mittlere "
+                                "Platzierung nach vorn"}[quote]
+                items.append({"kind": "info", "text": f"{anfang}: {werte}"})
             elif p_last > p_first + 0.5:
-                items.append({"kind": "warnung",
-                    "text": f"Die mittlere Platzierung verschlechtert sich: "
-                            f"Ø {_de(p_first, 1)} früher, Ø {_de(p_last, 1)} zuletzt."})
+                anfang = {"ab": "Auch die mittlere Platzierung fällt zurück",
+                          "gleich": "Bei gleichbleibender Quote fällt die "
+                                    "mittlere Platzierung zurück",
+                          "auf": "Trotz steigender Quote fällt die mittlere "
+                                 "Platzierung zurück"}[quote]
+                items.append({"kind": "warnung", "text": f"{anfang}: {werte}"})
 
     last_night = sorted_nights[-1]
     # Beide Groessen benennen: "Gesamt" enthaelt die Joker-Punkte, die Quote
@@ -687,7 +733,7 @@ def compute_insights(quiz_nights):
     items.append({"kind": "info",
         "text": f"Jüngster Abend ({last_night['Monat']}): "
                 f"{last_night['Gesamt']} Punkte inkl. Joker, "
-                f"{last_night['Pct_richtig']:.0%} richtig ohne Joker, "
+                f"{_pct(last_night['Pct_richtig'])} richtig ohne Joker, "
                 f"Platz {last_night.get('Platzierung', '?')} von "
                 f"{last_night.get('Von', '?')}."})
     sections.append({"titel": "Form-Trend", "lead": None, "items": items})
@@ -702,9 +748,9 @@ def compute_insights(quiz_nights):
     for kat in top2:
         scores = _scores_of(kat)
         items.append({"kind": "info",
-            "text": f"{kat} — Ø {_de(cat_avgs[kat], 2)}/5, "
-                    f"Streuung σ {_de(cat_stds[kat], 2)}, "
-                    f"Bandbreite {min(scores)}–{max(scores)}."})
+            "text": f"{kat} — Ø {_de(cat_avgs[kat], 1)}/5, "
+                    f"Streuung σ {_de(cat_stds[kat], 1)}, "
+                    f"Bandbreite {min(scores)}\u2060–\u2060{max(scores)}."})
     if cat_stds[top2[0]] < 1.0:
         items.append({"kind": "tipp",
             "text": f"{top2[0]} liefert verlässlich konstant — ein ruhiger "
@@ -729,8 +775,8 @@ def compute_insights(quiz_nights):
         recent = scores[-3:] if len(scores) >= 3 else scores
         recent_txt = ", ".join(str(s) for s in recent)
         items.append({"kind": "info",
-            "text": f"{kat} — Ø {_de(cat_avgs[kat], 2)}/5, zuletzt {recent[-1]} "
-                    f"(letzte Abende: {recent_txt})."})
+            "text": f"{kat} — Ø {_de(cat_avgs[kat], 1)}/5, letzte "
+                    f"{len(recent)} Abende: {recent_txt}."})
         if len(scores) >= 3 and mean(scores[-2:]) < cat_avgs[kat] - 0.5:
             items.append({"kind": "warnung",
                 "text": f"In {kat} flacht die Form zuletzt ab — vor dem nächsten "
@@ -759,9 +805,15 @@ def compute_insights(quiz_nights):
                                             -mean(s for s, _, _ in kv[1]))):
         hits = sum(1 for _, _, h in uses if h)
         avg = mean(s for s, _, _ in uses)
-        items.append({"kind": "info",
-            "text": f"{kat}: {len(uses)}× gewählt, Ø {_de(avg, 1)}, "
-                    f"Treffer {hits} von {len(uses)}."})
+        # Einmal gewaehlt: kein Durchschnitt, sondern der eine Wert.
+        if len(uses) == 1:
+            s0, _, h0 = uses[0]
+            text = (f"{kat}: 1× gewählt, {s0} {'Punkt' if s0 == 1 else 'Punkte'}, "
+                    f"{'getroffen' if h0 else 'nicht getroffen'}.")
+        else:
+            text = (f"{kat}: {len(uses)}× gewählt, Ø {_de(avg, 1)} Punkte, "
+                    f"{hits} von {len(uses)} getroffen.")
+        items.append({"kind": "info", "text": text})
     sections.append({"titel": "Joker-Bilanz", "lead": None, "items": items})
 
     # ----------------------------------------------------------------------
@@ -773,13 +825,17 @@ def compute_insights(quiz_nights):
     for kat in cats_no_sonder:
         uses = joker_use.get(kat, [])
         if uses:
-            hit_rate = sum(1 for _, _, h in uses if h) / len(uses)
+            treffer = sum(1 for _, _, h in uses if h)
+            hit_rate = treffer / len(uses)
+            grundlage = f"als Joker {treffer} von {len(uses)} getroffen"
         else:
             scores = _scores_of(kat)
-            hit_rate = (sum(1 for s in scores if s >= 3) / len(scores)
-                        if scores else 0)
+            gut = sum(1 for s in scores if s >= 3)
+            hit_rate = gut / len(scores) if scores else 0
+            grundlage = (f"noch nie als Joker gewählt, an {gut} von "
+                         f"{len(scores)} Abenden mindestens 3 Punkte")
         score = cat_avgs[kat] * (0.5 + hit_rate)
-        candidates.append((kat, score, hit_rate))
+        candidates.append((kat, score, hit_rate, grundlage))
 
     # Sonderrunde nur dann mit aufnehmen, wenn die letzten drei Sonderrunden
     # im Mittel mindestens 3 ergaben (nicht jedes Thema verträgt einen Joker).
@@ -788,25 +844,36 @@ def compute_insights(quiz_nights):
     if sr_recent and mean(sr_recent) >= 3:
         sr_uses = joker_use.get("Sonderrunde", [])
         if sr_uses:
-            sr_hit_rate = sum(1 for _, _, h in sr_uses if h) / len(sr_uses)
+            treffer = sum(1 for _, _, h in sr_uses if h)
+            sr_hit_rate = treffer / len(sr_uses)
+            grundlage = f"als Joker {treffer} von {len(sr_uses)} getroffen"
         else:
-            sr_hit_rate = sum(1 for s in sr_recent if s >= 3) / len(sr_recent)
+            gut = sum(1 for s in sr_recent if s >= 3)
+            sr_hit_rate = gut / len(sr_recent)
+            grundlage = (f"noch nie als Joker gewählt, in den letzten "
+                         f"{len(sr_recent)} Sonderrunden {gut}× mindestens "
+                         f"3 Punkte")
         sr_avg = mean([nx.get("cat_scores", {}).get("Sonderrunde", 0)
                        for nx in sorted_nights])
         candidates.append(("Sonderrunde", sr_avg * (0.5 + sr_hit_rate),
-                           sr_hit_rate))
+                           sr_hit_rate, grundlage))
 
     candidates.sort(key=lambda x: -x[1])
     top_pair = candidates[:2]
     items = [{"kind": "tipp",
         "text": f"Nächste Joker-Wahl: {top_pair[0][0]} und {top_pair[1][0]}."}]
-    for kat, _, hr in top_pair:
+    # Treffer und Punkteschnitt haben verschiedene Grundlagen (Joker-Abende
+    # bzw. alle Abende) -- beide werden darum ausdruecklich benannt. Vorher
+    # stand "Trefferquote 100 %, Ø 2,6/5" unvermittelt nebeneinander.
+    for kat, _, _, grundlage in top_pair:
+        avg_kat = (mean(_scores_of("Sonderrunde")) if kat == "Sonderrunde"
+                   else cat_avgs[kat])
         items.append({"kind": "info",
-            "text": f"{kat} — Trefferquote {hr:.0%}, "
-                    f"Ø {_de(cat_avgs.get(kat, mean(_scores_of('Sonderrunde')) if kat == 'Sonderrunde' else 0), 1)}/5."})
+            "text": f"{kat} — {grundlage}; über alle Abende "
+                    f"Ø {_de(avg_kat, 1)}/5."})
     sections.append({"titel": "Joker-Empfehlung",
-                     "lead": "Abgeleitet aus historischer Joker-Hit-Rate und "
-                             "Kategorie-Mittelwert.",
+                     "lead": "Abgeleitet aus der bisherigen Joker-Trefferquote "
+                             "und dem Punkteschnitt der Kategorie.",
                      "items": items})
 
     # ----------------------------------------------------------------------
@@ -824,25 +891,27 @@ def compute_insights(quiz_nights):
         else:
             other.append((thema, score, q["Monat"]))
 
+    def _gruppe(titel, liste):
+        """Ein Durchschnitt nur, wenn er etwas sagt: bei einem einzigen
+        Thema steht der Wert selbst, bei lauter gleichen Werten "jedes Mal"
+        ("3×, Ø 0,0/5" las sich wie eine Rechnung, wo dreimal 0 stand)."""
+        werte = [sc for _, sc, _ in liste]
+        if len(liste) == 1:
+            t, sc, _ = liste[0]
+            return f"{titel} (1×): {t} ({sc}/5)."
+        if len(set(werte)) == 1:
+            namen = ", ".join(t for t, _, _ in liste)
+            return f"{titel} ({len(liste)}×, jedes Mal {werte[0]}/5): {namen}."
+        themen = ", ".join(f"{t} ({sc}/5)" for t, sc, _ in liste)
+        return (f"{titel} ({len(liste)}×, Ø {_de(mean(werte), 1)}/5): "
+                f"{themen}.")
+
     items = []
-    if classical:
-        avg_cl = mean(s for _, s, _ in classical)
-        themes = ", ".join(f"{t} ({s}/5)" for t, s, _ in classical)
-        items.append({"kind": "info",
-            "text": f"Klassische Bildungsthemen ({len(classical)}×, "
-                    f"Ø {_de(avg_cl, 1)}/5): {themes}."})
-    if popculture:
-        avg_pop = mean(s for _, s, _ in popculture)
-        themes = ", ".join(f"{t} ({s}/5)" for t, s, _ in popculture)
-        items.append({"kind": "info",
-            "text": f"Popkultur und Alltagsnähe ({len(popculture)}×, "
-                    f"Ø {_de(avg_pop, 1)}/5): {themes}."})
-    if other:
-        avg_ot = mean(s for _, s, _ in other)
-        themes = ", ".join(f"{t} ({s}/5)" for t, s, _ in other)
-        items.append({"kind": "info",
-            "text": f"Sonstige Themen ({len(other)}×, "
-                    f"Ø {_de(avg_ot, 1)}/5): {themes}."})
+    for titel, liste in (("Klassische Bildungsthemen", classical),
+                         ("Popkultur und Alltagsnähe", popculture),
+                         ("Sonstige Themen", other)):
+        if liste:
+            items.append({"kind": "info", "text": _gruppe(titel, liste)})
 
     if (classical and popculture
             and mean(s for _, s, _ in popculture)
@@ -868,28 +937,54 @@ def compute_insights(quiz_nights):
     if flops:
         items.append({"kind": "warnung",
             "text": "Schwach: " + ", ".join(f"{k} ({v}/5)" for k, v in flops) + "."})
-    if n >= 2:
-        avg_gesamt = mean(q["Gesamt"] for q in sorted_nights[:-1])
-        diff_g = last_night["Gesamt"] - avg_gesamt
-        # Beide Werte stammen aus "Gesamt", enthalten also die Joker-Punkte --
-        # einmal benannt, damit der Vergleich eindeutig bleibt.
-        if diff_g > 3:
-            items.append({"kind": "info",
-                "text": f"Mit {last_night['Gesamt']} Punkten inkl. Joker deutlich "
-                        f"über dem Schnitt der bisherigen Abende "
-                        f"(Ø {_de(avg_gesamt, 1)}) — ein guter Lauf."})
-        elif diff_g < -3:
-            items.append({"kind": "warnung",
-                "text": f"Mit {last_night['Gesamt']} Punkten inkl. Joker unter dem "
-                        f"Schnitt der vorigen Abende (Ø {_de(avg_gesamt, 1)})."})
+    # Einordnung am FELD desselben Abends, nicht an den eigenen Rohpunkten
+    # frueherer Abende: Ein leichter Fragensatz hebt alle Teams, ohne dass
+    # man besser war (Nov 26: 41 Punkte lagen 3,7 ueber dem eigenen Schnitt,
+    # aber nur 1,3 ueber dem Feldmittel). Dieselbe Rechnung wie im
+    # Gegner-Reiter (compute_gegner_vergleich), damit beide dasselbe sagen.
+    feld_satz = None
+    if ergebnisse:
+        g = compute_gegner_vergleich(quiz_nights, ergebnisse)
+        datum = last_night.get("Datum")
+        abend = next((e for e in g["je_abend"]
+                      if e.get("abend") == datum and e["stand"] == "endstand"),
+                     None)
+        einordnung = next((e for e in g["einordnung_platzierungen"]
+                           if e.get("abend") == datum), None)
+        if abend is not None and einordnung is not None:
+            eigene = abend["eigene_punkte"]
+            feld = abend["feld_mittelwert"]
+            d = eigene - feld
+            schluss = {"besser als das Feld": "ein Abend besser als das Feld",
+                       "wie das Feld": "also etwa auf Höhe des Feldes",
+                       "schwächer als das Feld": "ein Abend schwächer als das Feld",
+                       }[einordnung["einstufung"]]
+            feld_satz = {
+                "kind": ("warnung" if einordnung["einstufung"]
+                         == "schwächer als das Feld" else "info"),
+                "text": f"Mit {eigene} Punkten inkl. Joker {_de(abs(d), 1)} "
+                        f"Punkte {'über' if d >= 0 else 'unter'} dem Feldmittel "
+                        f"des Abends (Ø {_de(feld, 1)}) — {schluss}."}
+    if feld_satz is None:
+        platz, von = last_night.get("Platzierung"), last_night.get("Von")
+        if platz and von and von >= 3:
+            anteil = (platz - 1) / (von - 1)
+            drittel = ("vorderes Drittel" if anteil < 1 / 3 else
+                       "Mittelfeld" if anteil <= 2 / 3 else
+                       "hinteres Drittel")
+            feld_satz = {"kind": "warnung" if anteil > 2 / 3 else "info",
+                "text": f"Platz {platz} von {von} — {drittel} "
+                        f"(ohne Ergebnistafel kein Punktvergleich mit dem Feld)."}
+    if feld_satz is not None:
+        items.append(feld_satz)
     sections.append({"titel": "Letzter Abend", "lead": None, "items": items})
 
     # ----------------------------------------------------------------------
     # 8. Ausblick
     # ----------------------------------------------------------------------
     items = [{"kind": "tipp",
-        "text": f"Doppel-Joker auf {top_pair[0][0]} und {top_pair[1][0]} "
-                f"— beide verbinden hohe Trefferquote mit solidem Mittelwert."}]
+        "text": f"Joker auf {top_pair[0][0]} und {top_pair[1][0]} — die beiden "
+                f"mit der besten Bilanz aus Joker-Treffern und Punkteschnitt."}]
     if bottom2:
         items.append({"kind": "tipp",
             "text": f"Vorbereitung lohnt sich in {bottom2[0]} und {bottom2[1]} "
@@ -961,13 +1056,15 @@ def compute_gegner_vergleich(quiz_nights, ergebnisse, mindest_gemeinsame_abende=
           Schnitt), je Liste nur ueber Endstand-Abende, chronologisch
       "gegnerbilanz" -> dict Kennung -> {"gemeinsame_abende", "vor_uns",
           "hinter_uns", "gleichstand", "punktabstand_mittel" [Gegner
-          minus wir, positiv heisst Gegner im Schnitt vorn],
+          minus wir, positiv heisst Gegner im Schnitt vorn], "urteil"
+          [Klartext dazu, z.B. "deutlich besser als wir"],
           "aussagekraeftig"}, nur ueber Endstand-Abende
       "einordnung_platzierungen" -> Liste je Endstand-Abend mit
           "abstand_spitze", "abstand_mittel", "z_score" [eigene Punkte
           minus Feldmittel, geteilt durch die Streuung des Feldes an
-          diesem Abend] und "einstufung" ("stark"/"durchschnittlich"/
-          "schwach", Schwelle |z| >= 0,5)
+          diesem Abend] und "einstufung" -- wie WIR an diesem Abend
+          gegenueber dem Feld lagen ("besser als das Feld" / "wie das
+          Feld" / "schwächer als das Feld", Schwelle |z| >= 0,5)
       "meta" -> Zaehlwerte: "abende_gespielt", "abende_endstand",
           "abende_zwischenstand", "abende_ohne_ergebnisliste",
           "mindest_gemeinsame_abende"
@@ -1066,11 +1163,11 @@ def compute_gegner_vergleich(quiz_nights, ergebnisse, mindest_gemeinsame_abende=
                     z = ((eigene_punkte - feld_mittel) / streuung
                          if streuung > 0 else 0.0)
                     if z >= 0.5:
-                        einstufung = "stark"
+                        einstufung = "besser als das Feld"
                     elif z <= -0.5:
-                        einstufung = "schwach"
+                        einstufung = "schwächer als das Feld"
                     else:
-                        einstufung = "durchschnittlich"
+                        einstufung = "wie das Feld"
                     einordnung.append({
                         "monat": monat,
                         "abend": datum,
@@ -1093,6 +1190,20 @@ def compute_gegner_vergleich(quiz_nights, ergebnisse, mindest_gemeinsame_abende=
                         if gesamt_feldmittel is not None else []),
     }
 
+    def _bilanz_urteil(abstand):
+        """Klartext zur Gegnerbilanz aus dem mittleren Punktabstand
+        (Gegner minus wir). Schwellen 2 und 5 Punkte -- bei rund 40 Punkten
+        je Abend etwa 5 % bzw. 12 %; unter 2 Punkten gilt "gleich stark"."""
+        if abstand >= 5:
+            return "deutlich besser als wir"
+        if abstand >= 2:
+            return "etwas besser als wir"
+        if abstand > -2:
+            return "etwa gleich stark"
+        if abstand > -5:
+            return "etwas schwächer als wir"
+        return "deutlich schwächer als wir"
+
     gegnerbilanz = {
         kennung: {
             "gemeinsame_abende": acc["abende"],
@@ -1100,6 +1211,7 @@ def compute_gegner_vergleich(quiz_nights, ergebnisse, mindest_gemeinsame_abende=
             "hinter_uns": acc["hinter_uns"],
             "gleichstand": acc["gleichstand"],
             "punktabstand_mittel": mean(acc["diffs"]),
+            "urteil": _bilanz_urteil(mean(acc["diffs"])),
             "aussagekraeftig": acc["abende"] >= mindest_gemeinsame_abende,
         }
         for kennung, acc in gegner_acc.items()

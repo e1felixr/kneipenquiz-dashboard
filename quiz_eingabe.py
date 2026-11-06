@@ -50,7 +50,141 @@ TEAMNAMEN_SCHLUESSEL_PATH = DATA_PATH.parent / "_teamnamen_schluessel.json"
 # Abend ganz ohne Ergebnisliste sind beide keine belastbare Vergleichsbasis
 # und werden grau mit Strichen statt Zahlen angezeigt.
 ZWISCHENSTAND_SUFFIX = " (Zwischenstand)"
+
+# Spaltenkoepfe der beiden Gegner-Tabellen -- einmal hier, damit Aufbau
+# (_build_gegner_tab) und Befuellung (_fill_gegner_*_table, misst die
+# Breiten) nicht auseinanderlaufen. Zweizeilig, wo der Kopf sonst die
+# Spalte breiter machte als ihren Inhalt; so passen beide Tabellen
+# nebeneinander und die Abkuerzungen ("z. Spitze", "Gem.") entfallen.
+GEGNER_ABEND_SPALTEN = (
+    ("monat", "Monat", "w"),
+    ("teams", "Teams", "center"),
+    ("eigene", "Eigene\nPunkte", "center"),
+    ("sieger", "Sieger-\npunkte", "center"),
+    ("rueckstand", "Rückstand\nzur Spitze", "center"),
+    ("feldmittel", "Feld-\nmittel", "center"),
+    ("diff_feld", "Abstand\nzum Feld", "center"),
+    ("einstufung", "Wir gegenüber\ndem Feld", "w"),
+)
+# Sortierfolge der Klartext-Spalten: nach Staerke, nicht alphabetisch.
+GEGNER_TEXT_RANG = {
+    "besser als das Feld": 0, "wie das Feld": 1, "schwächer als das Feld": 2,
+    "deutlich besser als wir": 0, "etwas besser als wir": 1,
+    "etwa gleich stark": 2, "etwas schwächer als wir": 3,
+    "deutlich schwächer als wir": 4,
+}
+SORT_PFEIL_PLATZ = " ▼"   # Breitenreserve im Kopf fuer den Sortierpfeil
+
+GEGNER_BILANZ_SPALTEN = (
+    ("team", "Team", "w"),
+    ("abende", "Gemeinsame\nAbende", "center"),
+    ("vor", "Vor\nuns", "center"),
+    ("hinter", "Hinter\nuns", "center"),
+    ("gleich", "Gleich-\nstand", "center"),
+    ("abstand", "Ø Punkt-\nabstand", "center"),
+    ("urteil", "Gegenüber\nuns", "w"),
+)
 OHNE_AUSWERTUNG_SUFFIX = " (ohne Auswertung)"
+
+
+# Kandidaten-Lagen fuer Streudiagramm-Beschriftungen, in Vorzugsreihenfolge:
+# (Richtung x, Richtung y). Erste Wahl ist "direkt rechts, mittig auf
+# Punkthoehe"; erst danach die Schraeglagen und die Gegenseite.
+_LABEL_RICHTUNGEN = [(1, 0), (1, 1), (1, -1), (-1, 0), (-1, 1), (-1, -1),
+                     (0, 1), (0, -1)]
+# Abstaende in pt: der erste Ring liegt dicht am Punkt (ohne Linie), die
+# weiteren bekommen eine Verbindungslinie zum Punkt.
+_LABEL_RINGE_PT = [6, 16, 28, 42, 58]
+_LABEL_PUNKT_RADIUS_PT = 5      # Markergroesse s=80 -> Radius ~4,5 pt
+_LABEL_LAYOUT_KLASSE = None
+
+
+def _scatter_label_layout(ax, anns):
+    """Liefert ein unsichtbares Artist, das bei JEDEM Zeichnen die
+    Beschriftungen eines Streudiagramms ueberschneidungsfrei setzt.
+
+    Warum beim Zeichnen und nicht einmal beim Aufbau: Die Lagen haengen an
+    Pixelabstaenden, und die aendern sich mit Fenstergroesse und mit der
+    Vollansicht (anderer DPI-Wert). Das Artist sitzt mit zorder -1 vor den
+    Annotationen in der Zeichenreihenfolge der Achse und verschiebt sie,
+    ehe sie selbst gezeichnet werden -- kein zweiter Zeichenlauf noetig.
+
+    Regeln je Beschriftung, in Reihenfolge: (1) ganz innerhalb der
+    Zeichenflaeche, (2) keine Ueberschneidung mit anderen Punkten oder
+    schon gesetzten Beschriftungen. Gesucht wird ringweise von innen nach
+    aussen; ab dem zweiten Ring wird die Verbindungslinie eingeblendet.
+    Passt nirgends etwas, gewinnt die Lage mit der kleinsten
+    Ueberschneidungsflaeche.
+    """
+    global _LABEL_LAYOUT_KLASSE
+    if _LABEL_LAYOUT_KLASSE is None:
+        from matplotlib.artist import Artist
+        from matplotlib.text import Text
+
+        def _flaeche(a, b):
+            w = min(a.x1, b.x1) - max(a.x0, b.x0)
+            h = min(a.y1, b.y1) - max(a.y0, b.y0)
+            return w * h if w > 0 and h > 0 else 0.0
+
+        class _LabelLayout(Artist):
+            def __init__(self, ax, anns):
+                super().__init__()
+                self._ax = ax
+                self._anns = anns
+                self.set_zorder(-1)
+
+            def draw(self, renderer):
+                ax = self._ax
+                from matplotlib.transforms import Bbox
+                rahmen = ax.get_window_extent(renderer)
+                r_px = renderer.points_to_pixels(_LABEL_PUNKT_RADIUS_PT)
+                luft = renderer.points_to_pixels(1.5)
+                punkte = [ax.transData.transform(a.xy) for a in self._anns]
+                belegt = [Bbox.from_extents(x - r_px, y - r_px,
+                                            x + r_px, y + r_px)
+                          for x, y in punkte]
+                for i, ann in enumerate(self._anns):
+                    # Der eigene Punkt ist kein Hindernis -- sonst faellt
+                    # die Nahlage (6 pt) immer durch. Gleiches gilt fuer
+                    # deckungsgleiche Punkte (Geographie/Geschichte lagen
+                    # beide bei 3,00 / 1,00).
+                    px, py = punkte[i]
+                    hindernisse = [
+                        b for j, b in enumerate(belegt)
+                        if j >= len(punkte)
+                        or abs(punkte[j][0] - px) > 0.5
+                        or abs(punkte[j][1] - py) > 0.5]
+                    beste = None
+                    for ring_nr, ring in enumerate(_LABEL_RINGE_PT):
+                        for cx, cy in _LABEL_RICHTUNGEN:
+                            ha = "left" if cx > 0 else ("right" if cx < 0 else "center")
+                            va = "bottom" if cy > 0 else ("top" if cy < 0 else "center")
+                            ann.xyann = (cx * ring, cy * ring)
+                            ann.set_ha(ha)
+                            ann.set_va(va)
+                            ann.update_positions(renderer)
+                            bb = Text.get_window_extent(ann, renderer)
+                            bb = Bbox.from_extents(bb.x0 - luft, bb.y0 - luft,
+                                                   bb.x1 + luft, bb.y1 + luft)
+                            raus = (bb.width * bb.height
+                                    - _flaeche(bb, rahmen))
+                            stoss = sum(_flaeche(bb, b) for b in hindernisse)
+                            kosten = raus * 4 + stoss
+                            if beste is None or kosten < beste[0]:
+                                beste = (kosten, ring_nr, cx, cy, ha, va, ring, bb)
+                            if kosten == 0:
+                                break
+                        if beste[0] == 0:
+                            break
+                    _, ring_nr, cx, cy, ha, va, ring, bb = beste
+                    ann.xyann = (cx * ring, cy * ring)
+                    ann.set_ha(ha)
+                    ann.set_va(va)
+                    ann.arrow_patch.set_visible(ring_nr > 0)
+                    belegt.append(bb)
+
+        _LABEL_LAYOUT_KLASSE = _LabelLayout
+    return _LABEL_LAYOUT_KLASSE(ax, anns)
 
 
 def _load_teamnamen_schluessel():
@@ -316,7 +450,7 @@ TEILE_SPALTEN = 1
 CHART_DPI_RASTER = 100
 CHART_DPI_VOLL = 140
 
-VERSION = "0.10.0"
+VERSION = "0.11.1"
 
 # Farbpalette fuer Kategorien (parallel zu app.py)
 CAT_COLORS = [
@@ -363,7 +497,8 @@ def _spaltenbreite(kopf, zellinhalte, polster=18):
     """
     f_kopf = tkfont.Font(font=FONT_HEADER)
     f_zelle = tkfont.Font(font=FONT_NORMAL)
-    breite = f_kopf.measure(kopf)
+    # Mehrzeilige Koepfe ("Rückstand\nzur Spitze"): die laengste Zeile zaehlt.
+    breite = max(f_kopf.measure(zeile) for zeile in kopf.split("\n"))
     for text in zellinhalte:
         breite = max(breite, f_zelle.measure(str(text)))
     return breite + polster
@@ -658,14 +793,18 @@ class QuizEingabeApp(tk.Tk):
             card.grid(row=0, column=i, sticky="nsew", padx=4, pady=2)
             lbl_label = tk.Label(card, text=label.upper(),
                                  font=FONT_SMALL, bg=CARD_BG, fg=TEXT_SECONDARY)
-            lbl_label.pack(anchor="w", padx=8, pady=(4, 0))
+            # Alle drei Zeilen zentriert -- auch eine umbrechende
+            # Unterzeile (justify="center"). Die Unterzeile von "Ø Richtig"
+            # ("von max. 60 Fragen, ohne Joker") bricht nicht um.
+            lbl_label.pack(anchor="center", padx=8, pady=(4, 0))
             lbl_value = tk.Label(card, text="–", font=FONT_GROSS,
                                  bg=CARD_BG, fg=TEXT_PRIMARY)
-            lbl_value.pack(anchor="w", padx=8, pady=0)
+            lbl_value.pack(anchor="center", padx=8, pady=0)
             lbl_sub = tk.Label(card, text="", font=FONT_SMALL,
-                               bg=CARD_BG, fg=TEXT_SECONDARY, wraplength=160,
-                               justify="left")
-            lbl_sub.pack(anchor="w", padx=8, pady=(0, 4), fill="x")
+                               bg=CARD_BG, fg=TEXT_SECONDARY,
+                               wraplength=0 if i == 1 else 160,
+                               justify="center")
+            lbl_sub.pack(anchor="center", padx=8, pady=(0, 4), fill="x")
             self._kpi_frame.columnconfigure(i, weight=1)
             self._kpi_cards.append({"label": lbl_label, "value": lbl_value, "sub": lbl_sub})
 
@@ -1241,22 +1380,6 @@ class QuizEingabeApp(tk.Tk):
         for sp in range(TEILE_SPALTEN):
             raster.columnconfigure(sp, weight=1, uniform="teile")
 
-        # Punkte-Spalte: feste Mindestbreite, gemessen an der tatsaechlichen
-        # Kopfzeile "Punkte (0-5)" (die es nur in Teil 1 gibt). Ohne diesen
-        # Deckel zieht genau diese Kopfzeile die Punkte-Spalte von Teil 1
-        # breiter als die der Teile 2 bis 4 -- jeder der vier Rahmen bemisst
-        # seine Spalten unabhaengig, und nur Teil 1 traegt den breiten
-        # Kopftext. Die Kategorie-Spalte (Spaltengewicht 2) verliert dadurch
-        # in Teil 1 Breite an die Punkte-Spalte, waehrend sie in Teil 2 bis 4
-        # den vollen Anteil bekommt -- sichtbar als drei schmalere
-        # Comboboxen oben. Gemessen wird ueber winfo_reqwidth() DES ECHTEN
-        # Labels (nicht per tkfont.Font nachgerechnet) -- eine Font-Messung
-        # allein uebersieht das Innenpolster, das der ttk-Stil "TLabel"
-        # jedem Label zusaetzlich mitgibt (EINZUG_X in _setup_styles), und
-        # traf die Spaltenbreite real um gut 18 px zu knapp.
-        teil_frames = []       # [teil] -> LabelFrame, fuer den Minsize-Deckel
-        punkte_header_lbl = None
-
         # 12 IntVars fuer Punkte, Comboboxen fuer Kategorien
         self._punkt_vars = []   # [teil][slot] -> IntVar
         self._cat_cmbs = []     # [teil][slot] -> Combobox
@@ -1278,25 +1401,9 @@ class QuizEingabeApp(tk.Tk):
             # wachsen; die leere Spalte 2 bekommt jetzt den groesseren Teil.
             lf.columnconfigure(0, weight=2)
             lf.columnconfigure(2, weight=3)
-            teil_frames.append(lf)
 
             teil_vars = []
             teil_cmbs = []
-
-            # Kopfzeile nur in Teil 1 -- die Rahmen 2 bis 4 erben die Lesart.
-            start_row = 0
-            if t == 0:
-                ttk.Label(lf, text="Kategorie", font=FONT_SMALL,
-                         foreground=TEXT_SECONDARY).grid(
-                    row=0, column=0, sticky="w",
-                    padx=PAD_SMALL, pady=(PAD_SMALL, 0))
-                punkte_header_lbl = ttk.Label(
-                    lf, text="Punkte (0–5)", font=FONT_SMALL,
-                    foreground=TEXT_SECONDARY)
-                punkte_header_lbl.grid(
-                    row=0, column=1, sticky="w",
-                    padx=(PAD_SMALL, PAD_MEDIUM), pady=(PAD_SMALL, 0))
-                start_row = 1
 
             for s in range(3):
                 var = tk.IntVar(value=0)
@@ -1308,7 +1415,7 @@ class QuizEingabeApp(tk.Tk):
 
                 cmb = ttk.Combobox(lf, values=list(CATEGORIES), state="normal",
                                    width=28, font=FONT_NORMAL)
-                cmb.grid(row=start_row + s, column=0, sticky="ew",
+                cmb.grid(row=s, column=0, sticky="ew",
                          padx=PAD_SMALL, pady=2)
                 _bind_combo_autocomplete(cmb)
                 cmb.bind("<<ComboboxSelected>>", self._on_cat_changed)
@@ -1318,45 +1425,45 @@ class QuizEingabeApp(tk.Tk):
                 spn = ttk.Spinbox(lf, from_=0, to=5, width=5,
                                   textvariable=var, font=FONT_NORMAL,
                                   justify="center")
-                spn.grid(row=start_row + s, column=1, sticky="w",
+                spn.grid(row=s, column=1, sticky="w",
                          padx=(PAD_SMALL, PAD_MEDIUM), pady=2)
 
-            # Rechnungsstrich: doppelte Querlinie in der Breite der
-            # Punkte-Spalte, direkt unter dem dritten Punktefeld -- wie bei
-            # einer Additionsaufgabe von Hand. sticky="ew" dehnt den Rahmen
-            # exakt auf die Spaltenbreite, die die Spinboxen darueber schon
-            # festlegen; die beiden 1-px-Kindframes ziehen sich per fill="x"
-            # auf diese Breite nach.
+            # Rechnungsstrich: doppelte Querlinie genau in der Breite der
+            # Spinboxen, direkt unter dem dritten Punktefeld -- wie bei
+            # einer Additionsaufgabe von Hand. Linie und Summe tragen die
+            # gemessene Spinbox-Breite und stehen wie die Spinboxen links
+            # (sticky="w") -- so bleiben sie buendig, auch wenn die Spalte
+            # einmal breiter wird als die Spinboxen.
+            spn.update_idletasks()
+            spn_w = spn.winfo_reqwidth()
             linie_frame = tk.Frame(lf, bg=BACKGROUND)
-            linie_frame.grid(row=start_row + 3, column=1, sticky="ew",
+            linie_frame.grid(row=3, column=1, sticky="w",
                               padx=(PAD_SMALL, PAD_MEDIUM), pady=(4, 0))
-            tk.Frame(linie_frame, height=1, bg=TEXT_PRIMARY).pack(fill="x")
-            tk.Frame(linie_frame, height=1, bg=TEXT_PRIMARY).pack(
-                fill="x", pady=(2, 0))
+            tk.Frame(linie_frame, width=spn_w, height=1,
+                     bg=TEXT_PRIMARY).pack()
+            tk.Frame(linie_frame, width=spn_w, height=1,
+                     bg=TEXT_PRIMARY).pack(pady=(2, 0))
 
-            # Beschriftung rechtsbuendig links daneben, Zahl fett und in
-            # derselben Spalte/Ausrichtung (zentriert) wie die drei
-            # Punktzahlen darueber.
+            # Beschriftung rechtsbuendig links daneben, Zahl fett und
+            # zentriert ueber der Spinbox-Breite wie die drei Punktzahlen
+            # darueber. Der 1-px-Streifen in Hintergrundfarbe haelt den
+            # Rahmen auf Spinbox-Breite.
             ttk.Label(lf, text=f"Summe Teil {t + 1}:",
                       font=FONT_NORMAL, foreground=TEXT_SECONDARY).grid(
-                row=start_row + 4, column=0, sticky="e",
+                row=4, column=0, sticky="e",
                 padx=PAD_SMALL, pady=(1, 2))
-            lbl_sum = ttk.Label(lf, text="0", font=FONT_SUM,
+            summe_frame = tk.Frame(lf, bg=BACKGROUND)
+            summe_frame.grid(row=4, column=1, sticky="w",
+                             padx=(PAD_SMALL, PAD_MEDIUM), pady=(0, 2))
+            tk.Frame(summe_frame, width=spn_w, height=1,
+                     bg=BACKGROUND).pack()
+            lbl_sum = ttk.Label(summe_frame, text="0", font=FONT_SUM,
                                  foreground=TEXT_PRIMARY, anchor="center")
-            lbl_sum.grid(row=start_row + 4, column=1, sticky="ew",
-                          padx=(PAD_SMALL, PAD_MEDIUM), pady=(1, 2))
+            lbl_sum.pack(fill="x")
 
             self._punkt_vars.append(teil_vars)
             self._cat_cmbs.append(teil_cmbs)
             self._teil_sum_labels.append(lbl_sum)
-
-        # Jetzt erst, mit dem echten Label im Baum, die Mindestbreite
-        # messen und auf alle vier Punkte-Spalten gleich anwenden.
-        punkte_header_lbl.update_idletasks()
-        punkte_minsize = (punkte_header_lbl.winfo_reqwidth()
-                          + PAD_SMALL + PAD_MEDIUM)
-        for lf in teil_frames:
-            lf.columnconfigure(1, minsize=punkte_minsize)
 
     # --- 4. Statuszeile ---
     def _build_statusbar(self):
@@ -1439,7 +1546,9 @@ class QuizEingabeApp(tk.Tk):
         # weiterhin mehr Platz fuer die Kategorienamen, Trend rechts fuer die
         # Sekundaerachse (Platzierung).
         self._ax_trend, self._canvas_trend = _chart_frame(
-            0, 0, "trend", dict(left=0.09, right=0.91, top=0.93, bottom=0.17))
+            # top 0,85 statt 0,93: Platz fuer die Legendenleiste unter dem
+            # Titel (siehe _draw_trend).
+            0, 0, "trend", dict(left=0.09, right=0.91, top=0.85, bottom=0.17))
         self._ax_ranking, self._canvas_ranking = _chart_frame(
             0, 1, "ranking", dict(left=0.20, right=0.97, top=0.93, bottom=0.12))
         self._ax_heat, self._canvas_heat = _chart_frame(
@@ -1649,60 +1758,6 @@ class QuizEingabeApp(tk.Tk):
         self._gegner_grundlage_label.pack(fill="x", padx=PAD_MEDIUM,
                                           pady=(PAD_MEDIUM, PAD_SMALL))
 
-        # --- Tabelle "je Abend" ---
-        lf_abend = ttk.LabelFrame(content, text="Ergebnisse je Abend")
-        lf_abend.pack(fill="x", padx=PAD_MEDIUM, pady=(0, PAD_MEDIUM))
-        cols_abend = ("monat", "teams", "eigene", "sieger", "rueckstand",
-                      "feldmittel", "diff_feld", "einstufung")
-        headers_abend = {
-            "monat": ("Monat", "w"),
-            "teams": ("Teams", "center"),
-            "eigene": ("Eigene Pkt.", "center"),
-            "sieger": ("Siegerpunkte", "center"),
-            "rueckstand": ("Rückstand z. Spitze", "center"),
-            "feldmittel": ("Feldmittel", "center"),
-            "diff_feld": ("Abstand zum Feld", "center"),
-            "einstufung": ("Einstufung", "center"),
-        }
-        self.tree_gegner_abend = ttk.Treeview(lf_abend, columns=cols_abend,
-                                              show="headings", height=8)
-        for col in cols_abend:
-            text, anchor = headers_abend[col]
-            breite = _spaltenbreite(text, [])
-            self.tree_gegner_abend.heading(col, text=text, anchor=anchor)
-            self.tree_gegner_abend.column(col, width=breite, minwidth=breite,
-                                          anchor=anchor, stretch=False)
-        self.tree_gegner_abend.tag_configure("grau", foreground=TEXT_SECONDARY)
-        self.tree_gegner_abend.pack(fill="x", padx=PAD_SMALL, pady=PAD_SMALL)
-
-        # --- Tabelle "Gegnerbilanz" ---
-        lf_bilanz = ttk.LabelFrame(content, text="Gegnerbilanz")
-        lf_bilanz.pack(fill="x", padx=PAD_MEDIUM, pady=(0, PAD_MEDIUM))
-        cols_bilanz = ("team", "abende", "vor", "hinter", "gleich", "abstand")
-        headers_bilanz = {
-            "team": ("Team", "w"),
-            "abende": ("Gem. Abende", "center"),
-            "vor": ("Vor uns", "center"),
-            "hinter": ("Hinter uns", "center"),
-            "gleich": ("Gleichstand", "center"),
-            "abstand": ("Ø Punktabstand", "center"),
-        }
-        self.tree_gegner_bilanz = ttk.Treeview(lf_bilanz, columns=cols_bilanz,
-                                               show="headings", height=8)
-        for col in cols_bilanz:
-            text, anchor = headers_bilanz[col]
-            breite = _spaltenbreite(text, [])
-            self.tree_gegner_bilanz.heading(col, text=text, anchor=anchor)
-            self.tree_gegner_bilanz.column(col, width=breite, minwidth=breite,
-                                           anchor=anchor, stretch=False)
-        self.tree_gegner_bilanz.pack(fill="x", padx=PAD_SMALL, pady=(PAD_SMALL, 0))
-
-        self._gegner_bilanz_footer = tk.Label(
-            lf_bilanz, text="", font=FONT_SMALL, bg=BACKGROUND,
-            fg=TEXT_SECONDARY, anchor="w", wraplength=1100, justify="left")
-        self._gegner_bilanz_footer.pack(fill="x", padx=PAD_SMALL,
-                                        pady=(0, PAD_SMALL))
-
         # --- Diagramme: gerahmt wie im Dashboard (_chart_frame), aber ohne
         # Vollansicht-Knopf -- zwei feste Diagramme nebeneinander brauchen
         # den Platzwechsel nicht. ---
@@ -1731,6 +1786,59 @@ class QuizEingabeApp(tk.Tk):
 
         self._ax_gegner_abstand, self._canvas_gegner_abstand = _rahmen(0)
         self._ax_gegner_feld, self._canvas_gegner_feld = _rahmen(1)
+
+        # --- Tabellen nebeneinander unter den Diagrammen ---
+        # Untereinander und in voller Breite liess jede Tabelle die rechte
+        # Haelfte leer und zwang zum Scrollen.
+        tabellen = tk.Frame(content, bg=BACKGROUND)
+        tabellen.pack(fill="x", padx=PAD_MEDIUM, pady=(0, PAD_MEDIUM))
+        tabellen.columnconfigure(0, weight=1, uniform="gegner_tabellen")
+        tabellen.columnconfigure(1, weight=1, uniform="gegner_tabellen")
+
+        def _tabelle(spalte, titel, spalten):
+            lf = ttk.LabelFrame(tabellen, text=titel)
+            lf.grid(row=0, column=spalte, sticky="nsew",
+                    padx=(0, PAD_SMALL) if spalte == 0 else (PAD_SMALL, 0))
+            tree = ttk.Treeview(lf, columns=[c for c, _, _ in spalten],
+                                show="headings", height=8)
+            # Zweizeilige Koepfe in Tk 8.6.15 (geprueft): Die Kopfhoehe wird
+            # an der -- hier ausgeblendeten -- Baumspalte #0 bemessen, und
+            # zwar nur, wenn der Stil angewandt wird. Dieser Reiter entsteht
+            # erst im sichtbaren Fenster, also: zweizeiliger Platzhalter in
+            # #0, danach den Stil neu zuweisen. Fehlt eins von beiden,
+            # schneidet Tk die zweite Kopfzeile ab.
+            tree.heading("#0", text="x\nx")
+            # Sortierzustand je Tabelle: [Spalte, absteigend] -- None heisst
+            # Ausgangsreihenfolge (chronologisch bzw. nach gemeinsamen
+            # Abenden), wie _fill_gegner_*_table sie einfuegt.
+            tree._e1_sort = [None, False]
+            tree._e1_koepfe = {col: text for col, text, _ in spalten}
+            for col, text, anchor in spalten:
+                breite = _spaltenbreite(text + SORT_PFEIL_PLATZ, [])
+                tree.heading(col, text=text, anchor=anchor,
+                             command=lambda c=col, t=tree:
+                                 self._gegner_sort_klick(t, c))
+                tree.column(col, width=breite, minwidth=breite,
+                            anchor=anchor, stretch=False)
+            tree.configure(style="Treeview")
+            tree.pack(fill="x", padx=PAD_SMALL, pady=(PAD_SMALL, 0))
+            return lf, tree
+
+        _, self.tree_gegner_abend = _tabelle(
+            0, "Ergebnisse je Abend", GEGNER_ABEND_SPALTEN)
+        self.tree_gegner_abend.tag_configure("grau", foreground=TEXT_SECONDARY)
+        lf_bilanz, self.tree_gegner_bilanz = _tabelle(
+            1, "Gegnerbilanz", GEGNER_BILANZ_SPALTEN)
+
+        self._gegner_bilanz_footer = tk.Label(
+            lf_bilanz, text="", font=FONT_SMALL, bg=BACKGROUND,
+            fg=TEXT_SECONDARY, anchor="w", wraplength=400, justify="left")
+        self._gegner_bilanz_footer.pack(fill="x", padx=PAD_SMALL,
+                                        pady=(0, PAD_SMALL))
+        # Umbruch folgt der halben Breite statt fester 1100 px.
+        self._gegner_bilanz_footer.bind(
+            "<Configure>",
+            lambda e: e.widget.configure(wraplength=max(200, e.width)))
 
     def _fill_gegner_abend_table(self, je_abend, einordnung):
         """Befuellt die Tabelle 'Ergebnisse je Abend' neu (loescht erst alle
@@ -1762,7 +1870,8 @@ class QuizEingabeApp(tk.Tk):
                 diff_anzeige = -e["abstand_mittel"]
                 diff_str = f"{diff_anzeige:+.1f}".replace(".", ",")
                 info = einordnung_by_abend.get(e["abend"])
-                einstufung = info["einstufung"] if info else "–"
+                # Textspalte: linksbuendig mit Zelleinzug wie "Monat".
+                einstufung = (ZELL_EINZUG + info["einstufung"]) if info else "–"
                 tags = ()
             else:
                 monat_anzeige = monat + (
@@ -1776,19 +1885,19 @@ class QuizEingabeApp(tk.Tk):
             values = (ZELL_EINZUG + monat_anzeige, teams, eigene, sieger,
                       rueckstand, feldmittel, diff_str, einstufung)
             zellen.append(values)
-            tree.insert("", "end", values=values, tags=tags)
+            tree.insert("", "end", iid=f"z{len(zellen) - 1}",
+                        values=values, tags=tags)
 
         tree.configure(height=max(1, min(len(zellen), 16)))
 
-        cols = ("monat", "teams", "eigene", "sieger", "rueckstand",
-                "feldmittel", "diff_feld", "einstufung")
-        headers = ("Monat", "Teams", "Eigene Pkt.", "Siegerpunkte",
-                   "Rückstand z. Spitze", "Feldmittel", "Abstand zum Feld",
-                   "Einstufung")
+        cols = [c for c, _, _ in GEGNER_ABEND_SPALTEN]
+        headers = [k for _, k, _ in GEGNER_ABEND_SPALTEN]
         for idx, (col, header) in enumerate(zip(cols, headers)):
             inhalte = [row[idx] for row in zellen]
-            breite = _spaltenbreite(header, inhalte)
+            breite = _spaltenbreite(header + SORT_PFEIL_PLATZ, inhalte)
             tree.column(col, width=breite, minwidth=breite)
+
+        self._gegner_sort_anwenden(tree)
 
     def _fill_gegner_bilanz_table(self, gegnerbilanz, mindest_gemeinsame_abende):
         """Befuellt die Tabelle 'Gegnerbilanz' -- nur aussagekraeftige
@@ -1815,25 +1924,71 @@ class QuizEingabeApp(tk.Tk):
             row = (ZELL_EINZUG + name, str(v["gemeinsame_abende"]),
                    str(v["vor_uns"]), str(v["hinter_uns"]),
                    str(v["gleichstand"]),
-                   f"{abstand_anzeige:+.1f}".replace(".", ","))
+                   f"{abstand_anzeige:+.1f}".replace(".", ","),
+                   ZELL_EINZUG + v["urteil"])
             zellen.append(row)
-            tree.insert("", "end", values=row)
+            tree.insert("", "end", iid=f"z{len(zellen) - 1}", values=row)
 
         tree.configure(height=max(1, min(len(zellen), 16)))
 
-        cols = ("team", "abende", "vor", "hinter", "gleich", "abstand")
-        headers = ("Team", "Gem. Abende", "Vor uns", "Hinter uns",
-                   "Gleichstand", "Ø Punktabstand")
+        cols = ("team", "abende", "vor", "hinter", "gleich", "abstand",
+                "urteil")
+        headers = [k for _, k, _ in GEGNER_BILANZ_SPALTEN]
         for idx, (col, header) in enumerate(zip(cols, headers)):
             inhalte = [row[idx] for row in zellen] if zellen else [""]
-            breite = _spaltenbreite(header, inhalte)
+            breite = _spaltenbreite(header + SORT_PFEIL_PLATZ, inhalte)
             tree.column(col, width=breite, minwidth=breite)
+
+        self._gegner_sort_anwenden(tree)
 
         self._gegner_bilanz_footer.configure(
             text=f"Nur Teams mit mindestens {mindest_gemeinsame_abende} "
                  f"gemeinsamen Endstand-Abenden gelten als aussagekräftig "
                  f"und erscheinen hier. Positive Werte beim Punktabstand: "
                  f"Sie liegen im Schnitt vorn.")
+
+    # ------------------------------------------------------------------
+    # Sortierung der Gegner-Tabellen (Kopf-Klick, wie in der Uebersicht)
+    # ------------------------------------------------------------------
+    def _gegner_sort_klick(self, tree, col):
+        """Erster Klick sortiert nach der Spalte, zweiter dreht um."""
+        if tree._e1_sort[0] == col:
+            tree._e1_sort[1] = not tree._e1_sort[1]
+        else:
+            tree._e1_sort = [col, False]
+        self._gegner_sort_anwenden(tree)
+
+    def _gegner_sort_anwenden(self, tree):
+        """Ordnet die Zeilen nach dem gemerkten Kriterium und setzt den
+        Pfeil. Zahlen numerisch ("+3,5", "-6,6"), "Monat" chronologisch
+        (= Einfuegereihenfolge, steckt in der iid "z<n>"), die Klartext-
+        Spalten nach GEGNER_TEXT_RANG; leere Zellen ("–") immer ans Ende,
+        gleich in welcher Richtung."""
+        col, absteigend = tree._e1_sort
+        zeilen = list(tree.get_children(""))
+        if col is not None:
+            def _wert(iid):
+                if col == "monat":
+                    return int(iid[1:])
+                text = str(tree.set(iid, col)).strip()
+                if text in ("", "–"):
+                    return None
+                if text in GEGNER_TEXT_RANG:
+                    return GEGNER_TEXT_RANG[text]
+                try:
+                    return float(text.replace(",", ".").replace("+", ""))
+                except ValueError:
+                    return text.lower()
+            mit = [z for z in zeilen if _wert(z) is not None]
+            ohne = [z for z in zeilen if _wert(z) is None]
+            zeilen = sorted(mit, key=_wert, reverse=absteigend) + ohne
+        for index, iid in enumerate(zeilen):
+            tree.move(iid, "", index)
+        for c, basis in tree._e1_koepfe.items():
+            pfeil = ""
+            if c == col:
+                pfeil = " ▼" if absteigend else " ▲"
+            tree.heading(c, text=basis + pfeil)
 
     def _draw_gegner_abstand(self, trend):
         """Diagramm 1: Abstand zur Spitze je Abend, nur Endstand-Abende
@@ -1856,6 +2011,9 @@ class QuizEingabeApp(tk.Tk):
         ax.tick_params(axis="both", labelsize=9)
         ax.grid(axis="y", alpha=0.15)
         hoch = max(werte) if werte else 0
+        # Kopfraum fuer die Wertbeschriftung ueber dem hoechsten Balken --
+        # ohne ihn stiess die Zahl (Jul 25: 21) an den oberen Rahmen.
+        ax.set_ylim(0, max(1, hoch) * 1.15)
         for xi, v in zip(x, werte):
             ax.text(xi, v + hoch * 0.02, str(v), ha="center", va="bottom",
                     fontsize=8, color="#374151")
@@ -1882,17 +2040,29 @@ class QuizEingabeApp(tk.Tk):
         feldmittel = [r["feld_mittelwert"] for r in rows]
 
         ax.bar(x, eigene_end, color="#2171b5", label="Eigene Pkt. (Endstand)")
-        ax.bar(x, eigene_zw, color="#9ecae1",
-               label="Eigene Pkt. (Zwischenstand)")
+        # Nur zeichnen, wenn es einen Zwischenstand gibt -- sonst stuende
+        # in der Legende eine Serie ohne einen einzigen Balken.
+        if any(r["stand"] == "zwischenstand" for r in rows):
+            ax.bar(x, eigene_zw, color="#9ecae1",
+                   label="Eigene Pkt. (Zwischenstand)")
         ax.plot(x, feldmittel, color="#e15759", marker="o", linewidth=2,
                 markersize=5, label="Feldmittel")
         ax.set_xticks(x)
         ax.set_xticklabels(monate, rotation=30, ha="right", fontsize=9)
         ax.set_ylabel("Punkte", fontsize=10)
-        ax.set_title("Eigene Punkte und Feldmittel je Abend", fontsize=11)
+        # Legende als Leiste zwischen Ueberschrift und Zeichenflaeche --
+        # oben links in der Flaeche ueberdeckte sie die Saeulen. Dafuer
+        # rueckt die Zeichenflaeche etwas tiefer (top 0,90 -> 0,80) und der
+        # Titel bekommt Abstand fuer die Leiste.
+        ax.figure.subplots_adjust(top=0.80)
+        ax.set_title("Eigene Punkte und Feldmittel je Abend", fontsize=11,
+                     pad=20)
         ax.tick_params(axis="both", labelsize=9)
         ax.grid(axis="y", alpha=0.15)
-        ax.legend(fontsize=7.5, loc="upper left")
+        handles, _labels = ax.get_legend_handles_labels()
+        ax.legend(fontsize=7.5, loc="lower center",
+                  bbox_to_anchor=(0.5, 1.0), ncol=len(handles),
+                  frameon=False, borderaxespad=0.3)
 
     def _refresh_gegner(self):
         """Berechnet den Gegner-Vergleich frisch und befuellt Grundlage-
@@ -1961,7 +2131,7 @@ class QuizEingabeApp(tk.Tk):
         for child in self._insights_inner.winfo_children():
             child.destroy()
 
-        sections = compute_insights(self.quiz_nights)
+        sections = compute_insights(self.quiz_nights, load_ergebnisse())
         if not sections:
             tk.Label(self._insights_inner,
                      text="Noch keine Daten vorhanden.",
@@ -1969,15 +2139,77 @@ class QuizEingabeApp(tk.Tk):
                      ).pack(padx=PAD_LARGE, pady=PAD_LARGE)
             return
 
-        for section in sections:
-            lf = ttk.LabelFrame(self._insights_inner, text=section["titel"])
+        # Zwei Spalten statt einer: Einspaltig blieb auf breiten Fenstern
+        # die rechte Haelfte leer, und man musste scrollen. Die Abschnitte
+        # bleiben in Lesereihenfolge (erst links von oben nach unten, dann
+        # rechts); geteilt wird dort, wo beide Spalten etwa gleich hoch
+        # werden -- geschaetzt ueber Zeilen (je Punkt eine Zeile plus
+        # Textlaenge / 90 Zeichen, je Abschnitt zwei fuer Rahmen und Titel).
+        def _hoehe(sec):
+            texte = [sec.get("lead") or ""] + [i["text"] for i in sec["items"]]
+            return 2 + sum(1 + len(t) // 90 for t in texte if t)
+        hoehen = [_hoehe(sec) for sec in sections]
+        gesamt = sum(hoehen)
+        teilung, links, beste = len(sections), 0, None
+        for idx in range(len(sections) + 1):
+            diff = abs(gesamt - 2 * links)
+            if beste is None or diff < beste:
+                beste, teilung = diff, idx
+            if idx < len(sections):
+                links += hoehen[idx]
+
+        spalten = []
+        for sp in range(2):
+            self._insights_inner.columnconfigure(sp, weight=1, uniform="ins")
+            spalte = tk.Frame(self._insights_inner, bg=BACKGROUND)
+            spalte.grid(row=0, column=sp, sticky="new",
+                        padx=(0, PAD_SMALL // 2) if sp == 0 else (PAD_SMALL // 2, 0))
+            spalten.append(spalte)
+
+        canvas = self._insights_canvas
+
+        def _kopiertext(parent, text, font, fg):
+            """Schreibgeschuetztes Textfeld im Aussehen eines Labels -- ein
+            tk.Label laesst sich nicht markieren, die Erkenntnisse sollen
+            sich aber herauskopieren lassen (Maus markieren, Strg+C).
+            Umbruch an Wortgrenzen in der tatsaechlichen Spaltenbreite;
+            die Hoehe folgt der Zahl der umgebrochenen Zeilen."""
+            feld = tk.Text(parent, font=font, fg=fg, bg=BACKGROUND,
+                           wrap="word", height=1, width=20, bd=0,
+                           highlightthickness=0, padx=0, pady=0,
+                           cursor="xterm", takefocus=0,
+                           selectbackground="#cfe8bd",
+                           selectforeground=TEXT_PRIMARY,
+                           inactiveselectbackground="#cfe8bd")
+            feld.insert("1.0", text)
+            # "disabled" sperrt nur das Schreiben -- Markieren und Strg+C
+            # bleiben moeglich.
+            feld.configure(state="disabled")
+
+            def _hoehe(_event=None):
+                zeilen = feld.count("1.0", "end", "displaylines")
+                zeilen = zeilen[0] if isinstance(zeilen, tuple) else zeilen
+                if zeilen and int(feld.cget("height")) != zeilen:
+                    feld.configure(height=zeilen)
+            feld.bind("<Configure>", _hoehe)
+
+            # Mausrad an die Seite weiterreichen: Das Textfeld wuerde es
+            # sonst selbst schlucken (es hat nichts zu scrollen).
+            def _rad(event):
+                canvas.yview_scroll(-int(event.delta / 120), "units")
+                return "break"
+            feld.bind("<MouseWheel>", _rad)
+            return feld
+
+        for nr, section in enumerate(sections):
+            ziel = spalten[0] if nr < teilung else spalten[1]
+            lf = ttk.LabelFrame(ziel, text=section["titel"])
             lf.pack(fill="x", padx=PAD_MEDIUM, pady=(PAD_MEDIUM, 0))
 
             if section.get("lead"):
-                tk.Label(lf, text=section["lead"],
-                         font=FONT_SMALL, bg=BACKGROUND, fg=TEXT_SECONDARY,
-                         wraplength=900, justify="left", anchor="w"
-                         ).pack(fill="x", padx=PAD_SMALL, pady=(PAD_SMALL, 0))
+                _kopiertext(lf, section["lead"], FONT_SMALL,
+                            TEXT_SECONDARY).pack(
+                    fill="x", padx=PAD_SMALL, pady=(PAD_SMALL, 0))
 
             for item in section["items"]:
                 kind = item["kind"]
@@ -1997,10 +2229,8 @@ class QuizEingabeApp(tk.Tk):
                 tk.Label(row, text=bullet, font=FONT_HEADER,
                          bg=BACKGROUND, fg=color, width=2, anchor="nw"
                          ).pack(side="left", anchor="n")
-                tk.Label(row, text=text, font=FONT_NORMAL,
-                         bg=BACKGROUND, fg=TEXT_PRIMARY,
-                         wraplength=850, justify="left", anchor="w"
-                         ).pack(side="left", fill="x", expand=True)
+                _kopiertext(row, text, FONT_NORMAL, TEXT_PRIMARY).pack(
+                    side="left", fill="x", expand=True, pady=(3, 0))
 
     def _refresh_kpis(self, kpis):
         """Setzt die sechs KPI-Karten."""
@@ -2013,7 +2243,7 @@ class QuizEingabeApp(tk.Tk):
             text=f"seit {kpis['first_monat']}" if kpis["first_monat"] else "")
 
         self._kpi_cards[1]["value"].configure(
-            text=f"{kpis['avg_pct']:.0%}" if n else "–")
+            text=f"{kpis['avg_pct'] * 100:.0f} %" if n else "–")
         # "ohne Joker" dazu: Die Quote bezieht sich auf die reinen
         # Spielpunkte (Pct_richtig = Summe Teil1-4 / 60) -- der Joker-Bonus
         # fliesst hier bewusst nicht ein, anders als bei "Gesamt (mit Joker)".
@@ -2031,19 +2261,22 @@ class QuizEingabeApp(tk.Tk):
 
         ap = kpis["avg_placement"]
         self._kpi_cards[3]["value"].configure(
-            text=f"{ap:.1f}" if ap is not None else "–")
+            text=f"{ap:.1f}".replace(".", ",") if ap is not None else "–")
         self._kpi_cards[3]["sub"].configure(
-            text=f"bei Ø {kpis['avg_teams']:.1f} Teams" if kpis["avg_teams"] else "")
+            text=(f"bei Ø {kpis['avg_teams']:.1f} Teams".replace(".", ",")
+                  if kpis["avg_teams"] else ""))
 
         bc = kpis["best_cat"]
         self._kpi_cards[4]["value"].configure(text=bc if bc else "–")
         self._kpi_cards[4]["sub"].configure(
-            text=f"Ø {kpis['best_cat_avg']:.1f}/5" if kpis["best_cat_avg"] is not None else "")
+            text=(f"Ø {kpis['best_cat_avg']:.1f}/5".replace(".", ",")
+                  if kpis["best_cat_avg"] is not None else ""))
 
         wc = kpis["worst_cat"]
         self._kpi_cards[5]["value"].configure(text=wc if wc else "–")
         self._kpi_cards[5]["sub"].configure(
-            text=f"Ø {kpis['worst_cat_avg']:.1f}/5" if kpis["worst_cat_avg"] is not None else "")
+            text=(f"Ø {kpis['worst_cat_avg']:.1f}/5".replace(".", ",")
+                  if kpis["worst_cat_avg"] is not None else ""))
 
     # ------------------------------------------------------------------
     # Chart-Methoden
@@ -2052,6 +2285,13 @@ class QuizEingabeApp(tk.Tk):
         """Trend: Quote als Balken (linke Achse), Platzierung als Linie (rechte Achse, invertiert)."""
         ax = self._ax_trend
         ax.clear()
+        # Zweitachse(n) vom letzten Zeichnen entfernen -- ax.clear() laesst
+        # sie stehen, und jedes Auffrischen legte eine weitere Platz-Achse
+        # samt Linie deckungsgleich obendrauf (nach drei Durchlaeufen fuenf
+        # Achsen in der Figur).
+        for alte in list(ax.figure.axes):
+            if alte is not ax:
+                alte.remove()
         monate = trend["monate"]
         pct = trend["pct"]
         placements = trend["placements"]
@@ -2062,11 +2302,17 @@ class QuizEingabeApp(tk.Tk):
         x = range(len(monate))
         ax.bar(x, pct, color="#6baed6", alpha=0.75, label="% richtig")
         ax.set_ylim(0, 1)
+        # Die Achse heisst "% richtig" -- dann tragen auch die Ticks Prozent
+        # (0 % bis 100 %) statt der Rohquote 0 bis 1,0.
+        from matplotlib.ticker import FuncFormatter
+        ax.yaxis.set_major_formatter(
+            FuncFormatter(lambda v, _pos: f"{v * 100:.0f} %"))
         ax.set_ylabel("% richtig", fontsize=10)
         ax.set_xticks(list(x))
         ax.set_xticklabels(monate, rotation=30, ha="right", fontsize=9)
         ax.tick_params(axis="y", labelsize=9)
-        ax.set_title("Platzierung & Quote pro Quizabend", fontsize=12)
+        ax.set_title("Platzierung & Quote pro Quizabend", fontsize=12,
+                     pad=20)
         ax.grid(axis="y", alpha=0.15)
         # Sekundaere Achse fuer Platzierung
         valid_pl = [p for p in placements if p is not None]
@@ -2076,9 +2322,24 @@ class QuizEingabeApp(tk.Tk):
                      marker="o", color="#34495e", linewidth=2, markersize=6,
                      label="Platzierung")
             max_pl = max(valid_pl)
-            ax2.set_ylim(max_pl + 2, 0)  # invertiert: 1 oben
+            ax2.set_ylim(max_pl + 1, 0)  # invertiert: 1 oben
+            # Ticks ab Platz 1 -- die Automatik setzte "0", einen Platz, den
+            # es nicht gibt.
+            ax2.set_yticks([1] + list(range(5, max_pl + 1, 5)))
             ax2.set_ylabel("Platz", fontsize=10)
             ax2.tick_params(axis="y", labelsize=9)
+        # Legende als Leiste zwischen Titel und Zeichenflaeche -- ohne sie
+        # blieb offen, was Balken und was Linie ist. Handles beider Achsen
+        # (Balken auf ax, Linie auf der Zweitachse) zusammengefuehrt.
+        handles, labels = ax.get_legend_handles_labels()
+        for andere in ax.figure.axes:
+            if andere is not ax:
+                h2, l2 = andere.get_legend_handles_labels()
+                handles += h2
+                labels += l2
+        ax.legend(handles, labels, fontsize=8, loc="lower center",
+                  bbox_to_anchor=(0.5, 1.0), ncol=len(handles),
+                  frameon=False, borderaxespad=0.3)
 
     def _draw_ranking(self, ranking):
         """Horizontaler Bar: Kategorie-Mittelwerte, absteigend."""
@@ -2106,15 +2367,24 @@ class QuizEingabeApp(tk.Tk):
         ax.grid(axis="x", alpha=0.15)
         for bar, v in zip(bars, vals):
             ax.text(v + 0.05, bar.get_y() + bar.get_height()/2,
-                    f"{v:.1f}", va="center", fontsize=9, color="#374151")
+                    f"{v:.1f}".replace(".", ","), va="center", fontsize=9,
+                    color="#374151")
 
     def _draw_heatmap(self, heat):
         """Heatmap Kategorien x Monate, RdYlBu_r."""
         ax = self._ax_heat
         ax.clear()
         monate = heat["monate"]
-        kats = heat["kategorien"]
-        matrix = heat["matrix"]
+        # Zeilen in derselben Reihenfolge wie das Ranking daneben: staerkste
+        # Kategorie oben, bei Gleichstand in der Reihenfolge von CATEGORIES.
+        # Die Daten kommen aufsteigend; imshow zeichnet die erste Zeile oben,
+        # so stand bisher die schwaechste Kategorie oben.
+        roh_kats, roh_matrix = heat["kategorien"], heat["matrix"]
+        folge = sorted(range(len(roh_kats)),
+                       key=lambda i: (-sum(roh_matrix[i]) / max(1, len(roh_matrix[i])),
+                                      CATEGORIES.index(roh_kats[i])))
+        kats = [roh_kats[i] for i in folge]
+        matrix = [roh_matrix[i] for i in folge]
         if not monate or not kats:
             ax.set_title("Heatmap", fontsize=12)
             ax.set_axis_off()
@@ -2147,15 +2417,27 @@ class QuizEingabeApp(tk.Tk):
             ax.set_title("Stärke vs. Konsistenz", fontsize=12)
             ax.set_axis_off()
             return
-        cats = [c for c, _, _ in scatter]
         avgs = [m for _, m, _ in scatter]
         stds = [s for _, _, s in scatter]
         ax.scatter(stds, avgs, s=80, c=avgs, cmap="Blues",
                    vmin=2, vmax=4, edgecolors="white", linewidth=1.5)
+        anns = []
         for cat, m, s in scatter:
-            ax.annotate(cat, (s, m), xytext=(5, 5),
-                        textcoords="offset points",
-                        fontsize=9, color="#374151")
+            # arrowprops von Anfang an: Die Verbindungslinie laesst sich
+            # spaeter nur ein-/ausblenden, nicht nachtraeglich anlegen.
+            ann = ax.annotate(cat, (s, m), xytext=(6, 0),
+                              textcoords="offset points",
+                              ha="left", va="center",
+                              fontsize=9, color="#374151",
+                              arrowprops=dict(arrowstyle="-", color="#9ca3af",
+                                              lw=0.8, shrinkA=1, shrinkB=5))
+            ann.arrow_patch.set_visible(False)
+            anns.append(ann)
+        ax.add_artist(_scatter_label_layout(ax, anns))
+        from matplotlib.ticker import FuncFormatter
+        komma = FuncFormatter(lambda v, _pos: f"{v:.1f}".replace(".", ","))
+        ax.xaxis.set_major_formatter(komma)
+        ax.yaxis.set_major_formatter(komma)
         ax.set_xlabel("Streuung σ (links = konstanter)", fontsize=10)
         ax.set_ylabel("Ø Punkte", fontsize=10)
         ax.set_title("Stärke vs. Konsistenz", fontsize=12)
@@ -2727,6 +3009,18 @@ class QuizEingabeApp(tk.Tk):
             return
 
         entry = quiznight_from_form(form)
+
+        # Ein geplanter Abend auf demselben Datum ist die Huelle genau dieses
+        # Abends -- er weicht dem gespielten Eintrag, statt als zweiter
+        # Eintrag mit gleichem Datum stehenzubleiben (gleiche iid sprengte
+        # die Uebersichtstabelle). Gespielte Abende auf dem Datum hat
+        # validate_form bereits abgewiesen.
+        self.quiz_nights = [
+            n for n in self.quiz_nights
+            if not (n.get("Geplant", False)
+                    and n.get("Datum") == entry["Datum"]
+                    and n.get("Datum") != edit_datum)
+        ]
 
         if edit_datum is None:
             self.quiz_nights.append(entry)
