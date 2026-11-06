@@ -319,6 +319,12 @@ except Exception:  # pragma: no cover - Deployment-Absicherung
     qd = None
 
 
+def _anz(kat):
+    """Anzeigeform einer Kategorie ("Religion & Mythologie") -- wie in der
+    Eingabe-GUI; die Daten behalten ihre Schluessel ("Rel./Mythol.")."""
+    return qd.anzeigename(kat) if qd is not None else kat
+
+
 # Die mtime gehört in den Cache-Schlüssel: sonst zeigt die lokal laufende App
 # nach einem neu erfassten Abend weiter den Stand des ersten Aufrufs.
 @st.cache_data
@@ -439,7 +445,7 @@ _last_month = months[-1] if months else ""
 st.markdown(f"""
 <div class="dashboard-header">
     <h1>🍺 Kneipenquiz Schwabach</h1>
-    <p>Performance-Dashboard &mdash; {n_nights} Quizabende &mdash; {_first_month} bis {_last_month}</p>
+    <p>Performance-Dashboard &ndash; {n_nights} Quizabende &ndash; {_first_month} bis {_last_month}</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -527,9 +533,9 @@ for m in months:
 perfect_labels = []
 for cat, ms in perfect_by_cat.items():
     if len(ms) == 1:
-        perfect_labels.append(f"{cat} ({ms[0]})")
+        perfect_labels.append(f"{_anz(cat)} ({ms[0]})")
     else:
-        perfect_labels.append(f"{cat} ({', '.join(ms)})")
+        perfect_labels.append(f"{_anz(cat)} ({', '.join(ms)})")
 perfect_count = sum(len(ms) for ms in perfect_by_cat.values())
 
 improvements = {}
@@ -542,9 +548,9 @@ most_improved = max(improvements, key=improvements.get)
 
 cols2 = st.columns([1, 1, 1, 2])
 kpi_data2 = [
-    ("Stärkste Kategorie", best_cat["Kategorie"], f"Ø {_de(best_cat['Mittelwert'])}/5", ""),
-    ("Schwächste Kategorie", worst_cat["Kategorie"], f"Ø {_de(worst_cat['Mittelwert'])}/5", "bad"),
-    ("Meiste Verbesserung", most_improved,
+    ("Stärkste Kategorie", _anz(best_cat["Kategorie"]), f"Ø {_de(best_cat['Mittelwert'])}/5", ""),
+    ("Schwächste Kategorie", _anz(worst_cat["Kategorie"]), f"Ø {_de(worst_cat['Mittelwert'])}/5", "bad"),
+    ("Meiste Verbesserung", _anz(most_improved),
      f"+{_de(improvements[most_improved])} Pkt. (Ø erste 2 vs. letzte 2 Abende)", ""),
     ("Perfekte Runden (5/5)", f"{perfect_count}x" if perfect_count else "–",
      ", ".join(perfect_labels) if perfect_labels else "–", ""),
@@ -567,8 +573,8 @@ detail_rows_data = []
 for q in quiz_nights:
     row = {
         "Monat": q["Monat"],
-        "Joker 1": q["Joker1"] or "–",
-        "Joker 2": q["Joker2"] or "–",
+        "Joker 1": _anz(q["Joker1"]) if q["Joker1"] else "–",
+        "Joker 2": _anz(q["Joker2"]) if q["Joker2"] else "–",
         "Sonderrunde": q["Sonderrunde_Thema"],
         "Teil 1": q["Teil1"],
         "Teil 2": q["Teil2"],
@@ -745,7 +751,7 @@ with col1:
 
     fig_rank = go.Figure()
     fig_rank.add_trace(go.Bar(
-        y=df_bar["Kategorie"],
+        y=[_anz(k) for k in df_bar["Kategorie"]],
         x=df_bar["Mittelwert"],
         orientation="h",
         marker=dict(color=colors, line=dict(width=0)),
@@ -773,7 +779,7 @@ with col2:
     fig_heat = go.Figure(go.Heatmap(
         z=df_heat.values,
         x=df_heat.columns.tolist(),
-        y=df_heat.index.tolist(),
+        y=[_anz(k) for k in df_heat.index],
         colorscale="RdYlBu",
         reversescale=True,
         zmin=0, zmax=5,
@@ -1031,7 +1037,7 @@ with col3:
     # Plotly zeichnet das erste Element unten: absteigend sortieren stellt
     # die verlässlichste Kategorie nach oben.
     df_cons = df_cons.sort_values("Std", ascending=False).reset_index(drop=True)
-    cats_y = df_cons["Kategorie"].tolist()
+    cats_y = [_anz(k) for k in df_cons["Kategorie"]]
 
     # Die Farbe trägt die Stärke, in denselben Stufen wie das Ranking links
     # -- so lassen sich beide Kategorie-Diagramme zusammen lesen.
@@ -1354,7 +1360,7 @@ if _sektionen:
         for _it in _sek.get("items", []):
             _farbe = KIND_FARBE.get(_it.get("kind"), "#d1d5db")
             teile.append(f'<div class="insight-item" style="border-left-color:{_farbe};">'
-                         f'{_it.get("text", "")}</div>')
+                         f'{qd.insight_html(_it.get("text", ""))}</div>')
         teile.append("</div>")
         _spalten[_i % 2].markdown("".join(teile), unsafe_allow_html=True)
 
@@ -1368,6 +1374,6 @@ st.markdown("""
 <!-- #4b5563 statt #9ca3af: Das alte Grau erreichte auf dem Seitengrund nur
      2,2:1 und war bei 13 px kaum zu entziffern. -->
 <div style="text-align:center; color:#4b5563; padding:2rem 0 1rem 0; font-size:0.8rem;">
-    Kneipenquiz Schwabach Dashboard &mdash; Datenquelle: data.json &mdash; Built with Streamlit & Plotly
+    Kneipenquiz Schwabach Dashboard &ndash; Datenquelle: data.json &ndash; Built with Streamlit & Plotly
 </div>
 """, unsafe_allow_html=True)

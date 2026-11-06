@@ -96,6 +96,71 @@ CATEGORIES = [
     "Sonderrunde", "Sport", "Verschiedenes", "Wissensch./Natur",
 ]
 
+# Anzeigeform der Kategorien: ausgeschrieben und mit "&" statt "/".
+# CATEGORIES bleibt der Schluessel in data.json (cat_scores, Joker1/2) und
+# wird NIE umbenannt -- angezeigt wird ueberall anzeigename(), zurueck in den
+# Schluessel fuehrt kategorie_aus_anzeige().
+KATEGORIE_ANZEIGE = {
+    "Essen/Trinken": "Essen & Trinken",
+    "Film/Fernsehen": "Film & Fernsehen",
+    "Kunst/Literatur": "Kunst & Literatur",
+    "Rel./Mythol.": "Religion & Mythologie",
+    "Wissensch./Natur": "Wissenschaft & Natur",
+}
+_ANZEIGE_ZU_KATEGORIE = {v: k for k, v in KATEGORIE_ANZEIGE.items()}
+
+
+def anzeigename(kat):
+    """Anzeigeform eines Kategorie-Schluessels ("Rel./Mythol." ->
+    "Religion & Mythologie"); Unbekanntes kommt unveraendert zurueck."""
+    return KATEGORIE_ANZEIGE.get(kat, kat)
+
+
+def kategorie_aus_anzeige(text):
+    """Gegenstueck zu anzeigename(): Anzeigeform -> Schluessel."""
+    return _ANZEIGE_ZU_KATEGORIE.get(text, text)
+
+
+# Kursiv-Markierung in den Erkenntnis-Texten (compute_insights): Kategorie-
+# namen stehen zwischen diesen Zeichen. Die GUI setzt sie kursiv
+# (insight_segmente), das Web-Dashboard als <i> (insight_html); beim
+# Kopieren aus der GUI entsteht reiner Text ohne die Zeichen.
+KURSIV_AUF, KURSIV_ZU = "\u27e8", "\u27e9"
+
+
+def _k(kat):
+    """Kategoriename fuer einen Erkenntnis-Text: Anzeigeform, kursiv markiert."""
+    return f"{KURSIV_AUF}{anzeigename(kat)}{KURSIV_ZU}"
+
+
+def insight_segmente(text):
+    """Zerlegt einen Erkenntnis-Text in [(teil, kursiv), ...]."""
+    teile, kursiv, rest = [], False, text
+    while rest:
+        zeichen = KURSIV_ZU if kursiv else KURSIV_AUF
+        pos = rest.find(zeichen)
+        if pos < 0:
+            teile.append((rest, kursiv))
+            break
+        if pos:
+            teile.append((rest[:pos], kursiv))
+        rest = rest[pos + 1:]
+        kursiv = not kursiv
+    return teile
+
+
+def insight_klartext(text):
+    """Erkenntnis-Text ohne Kursiv-Markierung."""
+    return text.replace(KURSIV_AUF, "").replace(KURSIV_ZU, "")
+
+
+def insight_html(text):
+    """Erkenntnis-Text als HTML: Sonderzeichen maskiert, Kategorien in <i>."""
+    from html import escape
+    return "".join(f"<i>{escape(t)}</i>" if k else escape(t)
+                   for t, k in insight_segmente(text))
+
+
 # Explizite Auswahl "kein Joker gesetzt". Steht in den Joker-Comboboxen an
 # erster Stelle; in data.json wird daraus None (siehe normalize_joker).
 JOKER_KEINER = "(keiner)"
@@ -700,7 +765,7 @@ def compute_insights(quiz_nights, ergebnisse=None):
         else:
             items.append({"kind": "info",
                 "text": f"Die Quote ruht stabil um {_pct((pct_first + pct_last) / 2)} "
-                        f"— weder Aufwärts- noch Abwärtsbewegung."})
+                        f"– weder Aufwärts- noch Abwärtsbewegung."})
 
         platz_first = [q["Platzierung"] for q in first_half
                        if q.get("Platzierung") is not None]
@@ -709,7 +774,7 @@ def compute_insights(quiz_nights, ergebnisse=None):
         if platz_first and platz_last:
             p_first = mean(platz_first)
             p_last = mean(platz_last)
-            werte = f"Ø {_de(p_first, 1)} früher, Ø {_de(p_last, 1)} zuletzt."
+            werte = f"Ø {_de(p_first, 1)} früher, Ø {_de(p_last, 1)} zuletzt."
             if p_last < p_first - 0.5:
                 anfang = {"auf": "Auch die mittlere Platzierung rückt nach vorn",
                           "gleich": "Bei gleichbleibender Quote rückt die "
@@ -748,16 +813,16 @@ def compute_insights(quiz_nights, ergebnisse=None):
     for kat in top2:
         scores = _scores_of(kat)
         items.append({"kind": "info",
-            "text": f"{kat} — Ø {_de(cat_avgs[kat], 1)}/5, "
+            "text": f"{_k(kat)} – Ø {_de(cat_avgs[kat], 1)}/5, "
                     f"Streuung σ {_de(cat_stds[kat], 1)}, "
                     f"Bandbreite {min(scores)}\u2060–\u2060{max(scores)}."})
     if cat_stds[top2[0]] < 1.0:
         items.append({"kind": "tipp",
-            "text": f"{top2[0]} liefert verlässlich konstant — ein ruhiger "
+            "text": f"{_k(top2[0])} liefert verlässlich konstant – ein ruhiger "
                     f"Joker-Kandidat."})
     else:
         items.append({"kind": "tipp",
-            "text": f"{top2[0]} ist im Mittel stark, schwankt jedoch merklich — "
+            "text": f"{_k(top2[0])} ist im Mittel stark, schwankt jedoch merklich – "
                     f"als Joker nur dann wählen, wenn das Thema des Abends "
                     f"Zuversicht weckt."})
     sections.append({"titel": "Verlässliche Pfeiler", "lead": None,
@@ -775,11 +840,11 @@ def compute_insights(quiz_nights, ergebnisse=None):
         recent = scores[-3:] if len(scores) >= 3 else scores
         recent_txt = ", ".join(str(s) for s in recent)
         items.append({"kind": "info",
-            "text": f"{kat} — Ø {_de(cat_avgs[kat], 1)}/5, letzte "
+            "text": f"{_k(kat)} – Ø {_de(cat_avgs[kat], 1)}/5, letzte "
                     f"{len(recent)} Abende: {recent_txt}."})
         if len(scores) >= 3 and mean(scores[-2:]) < cat_avgs[kat] - 0.5:
             items.append({"kind": "warnung",
-                "text": f"In {kat} flacht die Form zuletzt ab — vor dem nächsten "
+                "text": f"In {_k(kat)} flacht die Form zuletzt ab – vor dem nächsten "
                         f"Abend lohnt sich gezielte Vorbereitung."})
     sections.append({"titel": "Wackel-Kandidaten", "lead": None, "items": items})
 
@@ -808,10 +873,10 @@ def compute_insights(quiz_nights, ergebnisse=None):
         # Einmal gewaehlt: kein Durchschnitt, sondern der eine Wert.
         if len(uses) == 1:
             s0, _, h0 = uses[0]
-            text = (f"{kat}: 1× gewählt, {s0} {'Punkt' if s0 == 1 else 'Punkte'}, "
+            text = (f"{_k(kat)}: 1× gewählt, {s0} {'Punkt' if s0 == 1 else 'Punkte'}, "
                     f"{'getroffen' if h0 else 'nicht getroffen'}.")
         else:
-            text = (f"{kat}: {len(uses)}× gewählt, Ø {_de(avg, 1)} Punkte, "
+            text = (f"{_k(kat)}: {len(uses)}× gewählt, Ø {_de(avg, 1)} Punkte, "
                     f"{hits} von {len(uses)} getroffen.")
         items.append({"kind": "info", "text": text})
     sections.append({"titel": "Joker-Bilanz", "lead": None, "items": items})
@@ -861,7 +926,7 @@ def compute_insights(quiz_nights, ergebnisse=None):
     candidates.sort(key=lambda x: -x[1])
     top_pair = candidates[:2]
     items = [{"kind": "tipp",
-        "text": f"Nächste Joker-Wahl: {top_pair[0][0]} und {top_pair[1][0]}."}]
+        "text": f"Nächste Joker-Wahl: {_k(top_pair[0][0])} und {_k(top_pair[1][0])}."}]
     # Treffer und Punkteschnitt haben verschiedene Grundlagen (Joker-Abende
     # bzw. alle Abende) -- beide werden darum ausdruecklich benannt. Vorher
     # stand "Trefferquote 100 %, Ø 2,6/5" unvermittelt nebeneinander.
@@ -869,15 +934,15 @@ def compute_insights(quiz_nights, ergebnisse=None):
         avg_kat = (mean(_scores_of("Sonderrunde")) if kat == "Sonderrunde"
                    else cat_avgs[kat])
         items.append({"kind": "info",
-            "text": f"{kat} — {grundlage}; über alle Abende "
-                    f"Ø {_de(avg_kat, 1)}/5."})
+            "text": f"{_k(kat)} – {grundlage}; über alle Abende "
+                    f"Ø {_de(avg_kat, 1)}/5."})
     sections.append({"titel": "Joker-Empfehlung",
                      "lead": "Abgeleitet aus der bisherigen Joker-Trefferquote "
                              "und dem Punkteschnitt der Kategorie.",
                      "items": items})
 
     # ----------------------------------------------------------------------
-    # 6. Sonderrunde — was zieht
+    # 6. Sonderrunde – was zieht
     # ----------------------------------------------------------------------
     classical, popculture, other = [], [], []
     for q in sorted_nights:
@@ -894,7 +959,7 @@ def compute_insights(quiz_nights, ergebnisse=None):
     def _gruppe(titel, liste):
         """Ein Durchschnitt nur, wenn er etwas sagt: bei einem einzigen
         Thema steht der Wert selbst, bei lauter gleichen Werten "jedes Mal"
-        ("3×, Ø 0,0/5" las sich wie eine Rechnung, wo dreimal 0 stand)."""
+        ("3×, Ø 0,0/5" las sich wie eine Rechnung, wo dreimal 0 stand)."""
         werte = [sc for _, sc, _ in liste]
         if len(liste) == 1:
             t, sc, _ = liste[0]
@@ -903,7 +968,7 @@ def compute_insights(quiz_nights, ergebnisse=None):
             namen = ", ".join(t for t, _, _ in liste)
             return f"{titel} ({len(liste)}×, jedes Mal {werte[0]}/5): {namen}."
         themen = ", ".join(f"{t} ({sc}/5)" for t, sc, _ in liste)
-        return (f"{titel} ({len(liste)}×, Ø {_de(mean(werte), 1)}/5): "
+        return (f"{titel} ({len(liste)}×, Ø {_de(mean(werte), 1)}/5): "
                 f"{themen}.")
 
     items = []
@@ -918,9 +983,9 @@ def compute_insights(quiz_nights, ergebnisse=None):
                 > mean(s for _, s, _ in classical) + 1):
         items.append({"kind": "tipp",
             "text": "Popkultur und Alltagsthemen liegen Euch deutlich besser "
-                    "als klassische Bildungsthemen — bei freier Wahl dorthin "
+                    "als klassische Bildungsthemen – bei freier Wahl dorthin "
                     "tendieren."})
-    sections.append({"titel": "Sonderrunde — was zieht", "lead": None,
+    sections.append({"titel": "Sonderrunde – was zieht", "lead": None,
                      "items": items})
 
     # ----------------------------------------------------------------------
@@ -933,10 +998,10 @@ def compute_insights(quiz_nights, ergebnisse=None):
     flops = [(k, v) for k, v in sorted_cs if v <= 1]
     if tops:
         items.append({"kind": "info",
-            "text": "Stark: " + ", ".join(f"{k} ({v}/5)" for k, v in tops) + "."})
+            "text": "Stark: " + ", ".join(f"{_k(k)} ({v}/5)" for k, v in tops) + "."})
     if flops:
         items.append({"kind": "warnung",
-            "text": "Schwach: " + ", ".join(f"{k} ({v}/5)" for k, v in flops) + "."})
+            "text": "Schwach: " + ", ".join(f"{_k(k)} ({v}/5)" for k, v in flops) + "."})
     # Einordnung am FELD desselben Abends, nicht an den eigenen Rohpunkten
     # frueherer Abende: Ein leichter Fragensatz hebt alle Teams, ohne dass
     # man besser war (Nov 26: 41 Punkte lagen 3,7 ueber dem eigenen Schnitt,
@@ -955,16 +1020,16 @@ def compute_insights(quiz_nights, ergebnisse=None):
             eigene = abend["eigene_punkte"]
             feld = abend["feld_mittelwert"]
             d = eigene - feld
-            schluss = {"besser als das Feld": "ein Abend besser als das Feld",
-                       "wie das Feld": "also etwa auf Höhe des Feldes",
-                       "schwächer als das Feld": "ein Abend schwächer als das Feld",
+            schluss = {"besser als das Feld": "ein überdurchschnittlicher Abend",
+                       "wie das Feld": "ein völlig durchschnittlicher Abend",
+                       "schwächer als das Feld": "ein unterdurchschnittlicher Abend",
                        }[einordnung["einstufung"]]
             feld_satz = {
                 "kind": ("warnung" if einordnung["einstufung"]
                          == "schwächer als das Feld" else "info"),
                 "text": f"Mit {eigene} Punkten inkl. Joker {_de(abs(d), 1)} "
                         f"Punkte {'über' if d >= 0 else 'unter'} dem Feldmittel "
-                        f"des Abends (Ø {_de(feld, 1)}) — {schluss}."}
+                        f"des Abends (Ø {_de(feld, 1)}) – {schluss}."}
     if feld_satz is None:
         platz, von = last_night.get("Platzierung"), last_night.get("Von")
         if platz and von and von >= 3:
@@ -973,7 +1038,7 @@ def compute_insights(quiz_nights, ergebnisse=None):
                        "Mittelfeld" if anteil <= 2 / 3 else
                        "hinteres Drittel")
             feld_satz = {"kind": "warnung" if anteil > 2 / 3 else "info",
-                "text": f"Platz {platz} von {von} — {drittel} "
+                "text": f"Platz {platz} von {von} – {drittel} "
                         f"(ohne Ergebnistafel kein Punktvergleich mit dem Feld)."}
     if feld_satz is not None:
         items.append(feld_satz)
@@ -983,12 +1048,12 @@ def compute_insights(quiz_nights, ergebnisse=None):
     # 8. Ausblick
     # ----------------------------------------------------------------------
     items = [{"kind": "tipp",
-        "text": f"Joker auf {top_pair[0][0]} und {top_pair[1][0]} — die beiden "
+        "text": f"Joker auf {_k(top_pair[0][0])} und {_k(top_pair[1][0])} – die beiden "
                 f"mit der besten Bilanz aus Joker-Treffern und Punkteschnitt."}]
     if bottom2:
         items.append({"kind": "tipp",
-            "text": f"Vorbereitung lohnt sich in {bottom2[0]} und {bottom2[1]} "
-                    f"— hier holt Ihr im Mittel die wenigsten Punkte."})
+            "text": f"Vorbereitung lohnt sich in {_k(bottom2[0])} und {_k(bottom2[1])} "
+                    f"– hier holt Ihr im Mittel die wenigsten Punkte."})
     if (classical and popculture
             and mean(s for _, s, _ in popculture)
                 > mean(s for _, s, _ in classical) + 1):

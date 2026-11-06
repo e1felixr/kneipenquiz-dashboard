@@ -33,6 +33,9 @@ from quiz_data import (
     compute_gegner_vergleich,
     load_ergebnisse,
     gespielte_abende,
+    anzeigename,
+    kategorie_aus_anzeige,
+    insight_segmente,
 )
 
 # Klarnamen-Schluessel (Kennung -> echter Teamname): liegt bewusst NICHT in
@@ -208,7 +211,11 @@ def _load_teamnamen_schluessel():
         return {}
 
 # Auswahl der Joker-Comboboxen: '(keiner)' vorweg, dann der Kategorien-Kanon.
-JOKER_CHOICES = [JOKER_KEINER] + list(CATEGORIES)
+# Comboboxen zeigen die ausgeschriebene Anzeigeform ("Religion & Mythologie");
+# beim Lesen fuehrt kategorie_aus_anzeige() zurueck auf den Schluessel in
+# data.json. Die alte Kurzform eingetippt wird ebenso verstanden.
+KATEGORIEN_ANZEIGE = [anzeigename(c) for c in CATEGORIES]
+JOKER_CHOICES = [JOKER_KEINER] + KATEGORIEN_ANZEIGE
 
 
 def _bind_combo_typeahead(combo):
@@ -413,6 +420,10 @@ FONT_HEADER = (FONT_FAMILY, 12, "bold")
 FONT_TITLE = (FONT_FAMILY, 16, "bold")
 FONT_GROSS = (FONT_FAMILY, 14, "bold")   # Gesamt-Punktestand
 FONT_SUM = (FONT_FAMILY, 11, "bold")     # Summenzeile je Teil (Rechnungsstrich)
+# Kompakte Tabellen im Gegner-Reiter: zwei Tabellen nebeneinander unter zwei
+# Diagrammen -- mit 11/12 pt und 30 px Zeilenhoehe musste man scrollen.
+FONT_KOMPAKT = (FONT_FAMILY, 10)
+FONT_KOMPAKT_KOPF = (FONT_FAMILY, 10, "bold")
 
 PAD_LARGE = 15
 PAD_MEDIUM = 10
@@ -485,7 +496,8 @@ def _register_roboto():
 # ---------------------------------------------------------------------------
 # Spaltenbreiten-Messung (Treeview "Bisherige Abende")
 # ---------------------------------------------------------------------------
-def _spaltenbreite(kopf, zellinhalte, polster=18):
+def _spaltenbreite(kopf, zellinhalte, polster=18, kopf_font=None,
+                   zell_font=None):
     """Minwidth einer Treeview-Spalte: Kopf (FONT_HEADER) und die laengsten
     vorkommenden Zellinhalte (FONT_NORMAL) werden gemessen, das Maximum
     zaehlt, dazu ein Polster fuer Zellrand und Luft.
@@ -495,8 +507,8 @@ def _spaltenbreite(kopf, zellinhalte, polster=18):
     draufgeschlagen werden -- sonst summierten sich beide und die Tabelle
     rollte waagrecht, obwohl sie passt.
     """
-    f_kopf = tkfont.Font(font=FONT_HEADER)
-    f_zelle = tkfont.Font(font=FONT_NORMAL)
+    f_kopf = tkfont.Font(font=kopf_font or FONT_HEADER)
+    f_zelle = tkfont.Font(font=zell_font or FONT_NORMAL)
     # Mehrzeilige Koepfe ("Rückstand\nzur Spitze"): die laengste Zeile zaehlt.
     breite = max(f_kopf.measure(zeile) for zeile in kopf.split("\n"))
     for text in zellinhalte:
@@ -567,7 +579,7 @@ class QuizEingabeApp(tk.Tk):
     def _patch_fonts(self, family):
         """Aktualisiert alle globalen Font-Tupel mit dem registrierten Fontnamen."""
         global FONT_SMALL, FONT_NORMAL, FONT_HEADER, FONT_TITLE, FONT_GROSS, FONT_SUM
-        global FONT_FAMILY
+        global FONT_FAMILY, FONT_KOMPAKT, FONT_KOMPAKT_KOPF
         FONT_FAMILY = family
         FONT_SMALL = (family, 9)
         FONT_NORMAL = (family, 11)
@@ -575,6 +587,8 @@ class QuizEingabeApp(tk.Tk):
         FONT_TITLE = (family, 16, "bold")
         FONT_GROSS = (family, 14, "bold")
         FONT_SUM = (family, 11, "bold")
+        FONT_KOMPAKT = (family, 10)
+        FONT_KOMPAKT_KOPF = (family, 10, "bold")
 
     def _center_window(self, w, h):
         """Zentriert das Fenster auf dem Bildschirm."""
@@ -633,6 +647,11 @@ class QuizEingabeApp(tk.Tk):
         style.configure("Treeview.Heading", font=FONT_HEADER,
                         background=BACKGROUND, foreground=TEXT_PRIMARY,
                         padding=(EINZUG_X, 3))
+        # Kompakte Variante fuer den Gegner-Reiter (erbt Farben und
+        # Auswahl-Map von "Treeview").
+        style.configure("Kompakt.Treeview", font=FONT_KOMPAKT, rowheight=22)
+        style.configure("Kompakt.Treeview.Heading", font=FONT_KOMPAKT_KOPF,
+                        padding=(EINZUG_X, 2))
         # Zellen der Tabelle: ttk kennt keinen Innenabstand je Zelle, wohl aber
         # einen am Item-Element des Layouts. Greift er in dieser Tk-Fassung
         # nicht, faengt der Einzug ueber die Spaltenbreite ihn auf.
@@ -832,7 +851,7 @@ class QuizEingabeApp(tk.Tk):
         # dem passt, was _reload_tree tatsaechlich einsetzt.
         MONAT_PROBE = (ZELL_EINZUG + max(GERMAN_MONTHS_LONG, key=len) + " 2026"
                       + GEPLANT_SUFFIX)
-        KATEGORIE_PROBE = ZELL_EINZUG + max(CATEGORIES, key=len)
+        KATEGORIE_PROBE = ZELL_EINZUG + max(KATEGORIEN_ANZEIGE, key=len)
         PLATZ_PROBE = "50 / 50"
         # Die Tabelle traegt seit dem Umbau der Uebersicht auch die vier
         # Teilsummen (kurz "T1".."T4", sonst passen die Spalten nicht
@@ -846,10 +865,10 @@ class QuizEingabeApp(tk.Tk):
             "joker1": ("Joker 1", [KATEGORIE_PROBE], "w"),
             "joker2": ("Joker 2", [KATEGORIE_PROBE], "w"),
             "sonderrunde": ("Sonderrunde", [], "w"),
-            "teil1": ("T1", ["15"], "center"),
-            "teil2": ("T2", ["15"], "center"),
-            "teil3": ("T3", ["15"], "center"),
-            "teil4": ("T4", ["15"], "center"),
+            "teil1": ("Teil 1", ["15"], "center"),
+            "teil2": ("Teil 2", ["15"], "center"),
+            "teil3": ("Teil 3", ["15"], "center"),
+            "teil4": ("Teil 4", ["15"], "center"),
             "punkte": ("Punkte", ["99"], "center"),
             "bonus": ("Joker-Pkt.", ["10"], "center"),
             "gesamt": ("Gesamt m. Joker", ["99"], "center"),
@@ -947,7 +966,7 @@ class QuizEingabeApp(tk.Tk):
             fenster.title("Neuer Abend")
         else:
             _, datum = mode
-            fenster.title(f"Abend bearbeiten — {iso_to_monat_long(datum)}")
+            fenster.title(f"Abend bearbeiten – {iso_to_monat_long(datum)}")
 
         try:
             if ICON_PATH.exists():
@@ -1413,7 +1432,7 @@ class QuizEingabeApp(tk.Tk):
                 var._e1_trace_id = var.trace_add("write", self._recalc)
                 teil_vars.append(var)
 
-                cmb = ttk.Combobox(lf, values=list(CATEGORIES), state="normal",
+                cmb = ttk.Combobox(lf, values=list(KATEGORIEN_ANZEIGE), state="normal",
                                    width=28, font=FONT_NORMAL)
                 cmb.grid(row=s, column=0, sticky="ew",
                          padx=PAD_SMALL, pady=2)
@@ -1776,8 +1795,9 @@ class QuizEingabeApp(tk.Tk):
                               highlightbackground="#d1d5db",
                               highlightthickness=1)
             rahmen.grid(row=0, column=col, sticky="nsew", padx=4, pady=4)
-            fig = Figure(figsize=(5.5, 3.4), dpi=100, facecolor=CARD_BG)
-            fig.subplots_adjust(left=0.11, right=0.97, top=0.90, bottom=0.22)
+            # 2,6 statt 3,4 Zoll hoch: Platz fuer die Tabellen darunter.
+            fig = Figure(figsize=(5.5, 2.6), dpi=100, facecolor=CARD_BG)
+            fig.subplots_adjust(left=0.09, right=0.98, top=0.86, bottom=0.26)
             ax = fig.add_subplot(111)
             canvas_fig = FigureCanvasTkAgg(fig, master=rahmen)
             canvas_fig.get_tk_widget().pack(fill="both", expand=True,
@@ -1814,13 +1834,15 @@ class QuizEingabeApp(tk.Tk):
             tree._e1_sort = [None, False]
             tree._e1_koepfe = {col: text for col, text, _ in spalten}
             for col, text, anchor in spalten:
-                breite = _spaltenbreite(text + SORT_PFEIL_PLATZ, [])
+                breite = _spaltenbreite(text + SORT_PFEIL_PLATZ, [],
+                                        polster=24, kopf_font=FONT_KOMPAKT_KOPF,
+                                        zell_font=FONT_KOMPAKT)
                 tree.heading(col, text=text, anchor=anchor,
                              command=lambda c=col, t=tree:
                                  self._gegner_sort_klick(t, c))
                 tree.column(col, width=breite, minwidth=breite,
                             anchor=anchor, stretch=False)
-            tree.configure(style="Treeview")
+            tree.configure(style="Kompakt.Treeview")
             tree.pack(fill="x", padx=PAD_SMALL, pady=(PAD_SMALL, 0))
             return lf, tree
 
@@ -1888,13 +1910,16 @@ class QuizEingabeApp(tk.Tk):
             tree.insert("", "end", iid=f"z{len(zellen) - 1}",
                         values=values, tags=tags)
 
-        tree.configure(height=max(1, min(len(zellen), 16)))
+        # Alle Zeilen zeigen -- die Tabelle soll nicht in sich scrollen.
+        tree.configure(height=max(1, len(zellen)))
 
         cols = [c for c, _, _ in GEGNER_ABEND_SPALTEN]
         headers = [k for _, k, _ in GEGNER_ABEND_SPALTEN]
         for idx, (col, header) in enumerate(zip(cols, headers)):
             inhalte = [row[idx] for row in zellen]
-            breite = _spaltenbreite(header + SORT_PFEIL_PLATZ, inhalte)
+            breite = _spaltenbreite(header + SORT_PFEIL_PLATZ, inhalte,
+                                    polster=24, kopf_font=FONT_KOMPAKT_KOPF,
+                                    zell_font=FONT_KOMPAKT)
             tree.column(col, width=breite, minwidth=breite)
 
         self._gegner_sort_anwenden(tree)
@@ -1929,14 +1954,17 @@ class QuizEingabeApp(tk.Tk):
             zellen.append(row)
             tree.insert("", "end", iid=f"z{len(zellen) - 1}", values=row)
 
-        tree.configure(height=max(1, min(len(zellen), 16)))
+        # Alle Zeilen zeigen -- die Tabelle soll nicht in sich scrollen.
+        tree.configure(height=max(1, len(zellen)))
 
         cols = ("team", "abende", "vor", "hinter", "gleich", "abstand",
                 "urteil")
         headers = [k for _, k, _ in GEGNER_BILANZ_SPALTEN]
         for idx, (col, header) in enumerate(zip(cols, headers)):
             inhalte = [row[idx] for row in zellen] if zellen else [""]
-            breite = _spaltenbreite(header + SORT_PFEIL_PLATZ, inhalte)
+            breite = _spaltenbreite(header + SORT_PFEIL_PLATZ, inhalte,
+                                    polster=24, kopf_font=FONT_KOMPAKT_KOPF,
+                                    zell_font=FONT_KOMPAKT)
             tree.column(col, width=breite, minwidth=breite)
 
         self._gegner_sort_anwenden(tree)
@@ -2054,7 +2082,7 @@ class QuizEingabeApp(tk.Tk):
         # oben links in der Flaeche ueberdeckte sie die Saeulen. Dafuer
         # rueckt die Zeichenflaeche etwas tiefer (top 0,90 -> 0,80) und der
         # Titel bekommt Abstand fuer die Leiste.
-        ax.figure.subplots_adjust(top=0.80)
+        ax.figure.subplots_adjust(top=0.74)
         ax.set_title("Eigene Punkte und Feldmittel je Abend", fontsize=11,
                      pad=20)
         ax.tick_params(axis="both", labelsize=9)
@@ -2181,7 +2209,13 @@ class QuizEingabeApp(tk.Tk):
                            selectbackground="#cfe8bd",
                            selectforeground=TEXT_PRIMARY,
                            inactiveselectbackground="#cfe8bd")
-            feld.insert("1.0", text)
+            # Kategorienamen kursiv (Markierung aus compute_insights).
+            kursiv = tkfont.Font(font=font)
+            kursiv.configure(slant="italic")
+            feld._e1_kursiv = kursiv  # Referenz halten, sonst raeumt GC sie ab
+            feld.tag_configure("kursiv", font=kursiv)
+            for teil, ist_kursiv in insight_segmente(text):
+                feld.insert("end", teil, ("kursiv",) if ist_kursiv else ())
             # "disabled" sperrt nur das Schreiben -- Markieren und Strg+C
             # bleiben moeglich.
             feld.configure(state="disabled")
@@ -2267,13 +2301,13 @@ class QuizEingabeApp(tk.Tk):
                   if kpis["avg_teams"] else ""))
 
         bc = kpis["best_cat"]
-        self._kpi_cards[4]["value"].configure(text=bc if bc else "–")
+        self._kpi_cards[4]["value"].configure(text=anzeigename(bc) if bc else "–")
         self._kpi_cards[4]["sub"].configure(
             text=(f"Ø {kpis['best_cat_avg']:.1f}/5".replace(".", ",")
                   if kpis["best_cat_avg"] is not None else ""))
 
         wc = kpis["worst_cat"]
-        self._kpi_cards[5]["value"].configure(text=wc if wc else "–")
+        self._kpi_cards[5]["value"].configure(text=anzeigename(wc) if wc else "–")
         self._kpi_cards[5]["sub"].configure(
             text=(f"Ø {kpis['worst_cat_avg']:.1f}/5".replace(".", ",")
                   if kpis["worst_cat_avg"] is not None else ""))
@@ -2351,7 +2385,7 @@ class QuizEingabeApp(tk.Tk):
             return
         # Fuer horizontale Anzeige: kleinste Werte unten -> wir kehren um (matplotlib)
         items = list(reversed(ranking))  # schwaechste unten -> staerkste oben
-        cats = [c for c, _ in items]
+        cats = [anzeigename(c) for c, _ in items]
         vals = [v for _, v in items]
         colors = []
         for v in vals:
@@ -2395,7 +2429,7 @@ class QuizEingabeApp(tk.Tk):
         ax.set_xticks(range(len(monate)))
         ax.set_xticklabels(monate, rotation=30, ha="right", fontsize=9)
         ax.set_yticks(range(len(kats)))
-        ax.set_yticklabels(kats, fontsize=9)
+        ax.set_yticklabels([anzeigename(k) for k in kats], fontsize=9)
         ax.set_title("Punkte-Heatmap (Kategorien × Monate)", fontsize=12)
         # Zellbeschriftung mit Punktzahl. Die Schriftfarbe richtet sich nach
         # der Helligkeit der Zelle: RdYlBu_r laeuft an BEIDEN Enden ins Dunkle
@@ -2425,7 +2459,7 @@ class QuizEingabeApp(tk.Tk):
         for cat, m, s in scatter:
             # arrowprops von Anfang an: Die Verbindungslinie laesst sich
             # spaeter nur ein-/ausblenden, nicht nachtraeglich anlegen.
-            ann = ax.annotate(cat, (s, m), xytext=(6, 0),
+            ann = ax.annotate(anzeigename(cat), (s, m), xytext=(6, 0),
                               textcoords="offset points",
                               ha="left", va="center",
                               fontsize=9, color="#374151",
@@ -2520,8 +2554,8 @@ class QuizEingabeApp(tk.Tk):
                 # Zusatz statt Jahreszahl-Kurzform: macht in der Tabelle auf
                 # den ersten Blick klar, dass hier noch kein Ergebnis steht.
                 monat_lang += GEPLANT_SUFFIX
-            joker1 = night.get("Joker1") or "–"
-            joker2 = night.get("Joker2") or "–"
+            joker1 = anzeigename(night.get("Joker1")) if night.get("Joker1") else "–"
+            joker2 = anzeigename(night.get("Joker2")) if night.get("Joker2") else "–"
             sonderrunde = night.get("Sonderrunde_Thema", "")
             if geplant:
                 # Eine 0 behauptet ein Ergebnis, ein Strich nicht -- die
@@ -2702,14 +2736,15 @@ class QuizEingabeApp(tk.Tk):
         used = set()
         for t in range(4):
             for s in range(3):
-                v = self._cat_cmbs[t][s].get().strip()
+                v = kategorie_aus_anzeige(self._cat_cmbs[t][s].get().strip())
                 if v in CATEGORIES:
                     used.add(v)
         for t in range(4):
             for s in range(3):
                 cmb = self._cat_cmbs[t][s]
-                own = cmb.get().strip()
-                avail = [c for c in CATEGORIES if c not in used or c == own]
+                own = kategorie_aus_anzeige(cmb.get().strip())
+                avail = [anzeigename(c) for c in CATEGORIES
+                         if c not in used or c == own]
                 cmb._full_choices = avail
                 cmb.configure(values=avail)
 
@@ -2732,15 +2767,15 @@ class QuizEingabeApp(tk.Tk):
                     p = self._punkt_vars[t][slot_idx].get()
                 except tk.TclError:
                     p = 0
-                kat = self._cat_cmbs[t][slot_idx].get()
+                kat = kategorie_aus_anzeige(self._cat_cmbs[t][slot_idx].get())
                 if kat:
                     cat_scores[kat] = cat_scores.get(kat, 0) + p
                 s += p
             teil_sums.append(s)
             self._teil_sum_labels[t].configure(text=str(s))
 
-        joker1 = normalize_joker(self.cmb_joker1.get())
-        joker2 = normalize_joker(self.cmb_joker2.get())
+        joker1 = normalize_joker(kategorie_aus_anzeige(self.cmb_joker1.get()))
+        joker2 = normalize_joker(kategorie_aus_anzeige(self.cmb_joker2.get()))
         bonus = compute_bonus(joker1, joker2, cat_scores)
 
         gesamt = sum(teil_sums) + bonus
@@ -2820,8 +2855,8 @@ class QuizEingabeApp(tk.Tk):
 
         # Kein Joker gespeichert -> '(keiner)' anzeigen (nicht leer, sonst
         # meldet die Pruefung beim Speichern einen fehlenden Joker).
-        self.cmb_joker1.set(night.get("Joker1") or JOKER_KEINER)
-        self.cmb_joker2.set(night.get("Joker2") or JOKER_KEINER)
+        self.cmb_joker1.set(anzeigename(night.get("Joker1") or JOKER_KEINER))
+        self.cmb_joker2.set(anzeigename(night.get("Joker2") or JOKER_KEINER))
 
         self.ent_sonderrunde.delete(0, "end")
         self.ent_sonderrunde.insert(0, night.get("Sonderrunde_Thema", "") or "")
@@ -2844,7 +2879,7 @@ class QuizEingabeApp(tk.Tk):
         for i, (kat, pts) in enumerate(items):
             t = i // 3
             s = i % 3
-            self._cat_cmbs[t][s].set(kat if kat else "")
+            self._cat_cmbs[t][s].set(anzeigename(kat) if kat else "")
             self._punkt_vars[t][s].set(pts if pts else 0)
 
         self._refresh_cat_choices()
@@ -2877,8 +2912,8 @@ class QuizEingabeApp(tk.Tk):
         except ValueError:
             day = None
 
-        joker1 = self.cmb_joker1.get()
-        joker2 = self.cmb_joker2.get()
+        joker1 = kategorie_aus_anzeige(self.cmb_joker1.get())
+        joker2 = kategorie_aus_anzeige(self.cmb_joker2.get())
         sonderrunde_thema = self.ent_sonderrunde.get().strip()
 
         platz_raw = self.spn_platz.get().strip()
@@ -2896,7 +2931,7 @@ class QuizEingabeApp(tk.Tk):
         for t in range(4):
             teil = []
             for s in range(3):
-                kat = self._cat_cmbs[t][s].get()
+                kat = kategorie_aus_anzeige(self._cat_cmbs[t][s].get())
                 try:
                     pts = self._punkt_vars[t][s].get()
                 except tk.TclError:
